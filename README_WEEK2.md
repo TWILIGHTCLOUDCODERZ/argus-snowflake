@@ -31,13 +31,24 @@ connection — key-pair auth, shared by the Snowflake CLI and CoCo
 | `ARGUS.GOVERNED` | clean-room views, twin tables, `control_gap`, `typology_exposure` |
 | Semantic views | `ARGUS_FRAUD_SV`, `ARGUS_REGTWIN_SV` — compiled first time, answer `SEMANTIC_VIEW()` queries |
 
-### Run order
+### Run order (full rebuild)
 ```
-00_setup_warehouse.sql -> [upload CSVs] -> 01_raw_schema.sql -> 02_clean_room.sql
-                       -> 05_regulatory_twin.sql -> 03_semantic_views.sql
+00_setup_warehouse.sql
+  -> upload data/*.csv + data/twin_seed.json + data/live_feed.csv  to @ARGUS.RAW.ARGUS_STAGE
+01_raw_schema.sql            RAW tables + load + curated views
+02_clean_room.sql            hashed cross-bank signal
+05_regulatory_twin.sql       twin loaded from twin_seed.json on the stage
+06_pipelines.sql             live queue, stream, task graph, dynamic tables, alerts
+08_documents.sql             PDFs -> DOCUMENTS -> chunks -> Cortex Search -> extraction
+09_drive_ingestion.sql       Google Drive lineage + change detection (run via CoCo + MCP)
+semantic/*.yaml              deploy with `cortex agent-studio sv-deploy` (needs 05 + 06)
+07_governance_clean_room.sql roles, row isolation, PII masking, secure signal (run last)
 ```
-`05` runs before `03` because the reg-twin semantic view reads the twin tables.
-Upload one file at a time (Windows shells expand `*.csv` before `snow` sees it):
+`03_semantic_views.sql` is the original Week 2 DDL, kept for history; the deployed
+semantic views are defined by `semantic/argus_fraud_sv.yaml` and
+`semantic/argus_regtwin_sv.yaml` (extended in CoCo sessions S6/S6b).
+
+Upload one file at a time (Windows shells expand wildcards before `snow` sees them):
 ```bash
 snow stage copy data/transactions.csv @ARGUS.RAW.ARGUS_STAGE -c argus --overwrite
 ```

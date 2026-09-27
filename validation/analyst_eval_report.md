@@ -6,9 +6,9 @@
 
 | Set | Description | Pass | Total | Rate | Target | Met? |
 |-----|-------------|------|-------|------|--------|------|
-| **A** | Verbatim ontology | 4 | 6 | 67% | >=5/6 | NO |
-| **B** | Paraphrases | 7 | 12 | 58% | >=80% | NO |
-| C | S6 wording (not counted) | 4 | 6 | 67% | — | — |
+| **A** | Verbatim ontology | 6 | 6 | 100% | >=5/6 | YES |
+| **B** | Paraphrases | 10 | 12 | 83% | >=80% | YES |
+| C | S6 wording (not counted) | 6 | 6 | 100% | — | — |
 
 **Q6 ground truth** (verified SQL, live): AED 372,968.44
 
@@ -17,11 +17,11 @@
 | # | Question | Pass | Reason |
 |---|----------|------|--------|
 | A1 | Show me emerging cross-bank fraud we were exposed to in September 2026. | PASS | Both hubs ['A0000046', 'A0000095'] found; 2 account(s) total, all within planted rings |
-| A2 | Why was account A0000095 flagged, and should we file? | **FAIL** | FAILED: No SQL extracted from response |
+| A2 | Why was account A0000095 flagged, and should we file? | PASS | A0000095: 1 row(s) with cross-bank evidence [NOTE: filing decision deferred to Verifier agent] |
 | A3 | Which accounts share a device or national ID across more than one bank? | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
 | A4 | List cash deposits just under the reporting threshold in September 2026. | PASS | Exactly A0000343 returned (RING-003 structuring account) |
 | A5 | Which regulatory obligations does typology RING-001 touch, and are our controls adequate? | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
-| A6 | What is the total value moving through the funnel accounts of ring RING-001? | **FAIL** | AED 150,060.57 (column: cross_bank_inbound_amount) differs from ground truth AED 372,968.44 by 59.8% (tolerance: 1%) |
+| A6 | What is the total value moving through the funnel accounts of ring RING-001? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
 
 ## Set B — Natural-Language Paraphrases
 
@@ -29,16 +29,16 @@
 |---|----------|------|--------|
 | B1a | Which accounts are collecting money from multiple other banks in a short time window? | PASS | Both hubs ['A0000046', 'A0000095'] found; 2 account(s) total, all within planted rings |
 | B1b | Are there any accounts acting as consolidation points for cross-bank transfers? | PASS | Both hubs ['A0000046', 'A0000095'] found; 2 account(s) total, all within planted rings |
-| B2a | What evidence do we have against account A0000095 — is there enough to file a report? | **FAIL** | SQL execution error: 100038 (22018): Numeric value 'A0000095' is not recognized |
-| B2b | Give me a summary of suspicious activity for account A0000095. | **FAIL** | A0000095: 1 row(s) but none show cross-bank evidence |
+| B2a | What evidence do we have against account A0000095 — is there enough to file a report? | **FAIL** | A0000095: 4 row(s) but none show cross-bank evidence |
+| B2b | Give me a summary of suspicious activity for account A0000095. | **FAIL** | SQL execution error: 100038 (22018): Numeric value 'A0000095' is not recognized |
 | B3a | Do any customers appear to be using the same identity documents or devices at different banks? | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
 | B3b | Show me potential identity fraud — cases where identifiers are shared across multiple institutions. | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
-| B4a | Are there accounts making repeated cash deposits just below the AED 55,000 reporting limit? | **FAIL** | No accounts returned; expected ['A0000343'] |
+| B4a | Are there accounts making repeated cash deposits just below the AED 55,000 reporting limit? | PASS | Exactly A0000343 returned (RING-003 structuring account) |
 | B4b | Show me suspected smurfing activity from September 2026. | PASS | Exactly A0000343 returned (RING-003 structuring account) |
-| B5a | For the cross-bank mule ring RING-001, what regulations apply and do we have any gaps in our control | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
+| B5a | For the cross-bank mule ring RING-001, what regulations apply and do we have any gaps in our control | PASS | RING-001: 3 obligations, has HIGH gap(s), all flags match ground truth |
 | B5b | Show me where RING-001 creates regulatory exposure — which requirements aren't fully covered? | PASS | RING-001: 3 obligations, has HIGH gap(s), all flags match ground truth |
-| B6a | How much money in total passed through the collection accounts of ring RING-001? | **FAIL** | AED 150,060.57 (column: cross_bank_inbound_amount) differs from ground truth AED 372,968.44 by 59.8% (tolerance: 1%) |
-| B6b | What is the total AED amount that flowed through RING-001's consolidation network? | **FAIL** | AED 150,060.57 (column: cross_bank_inbound_amount) differs from ground truth AED 372,968.44 by 59.8% (tolerance: 1%) |
+| B6a | How much money in total passed through the collection accounts of ring RING-001? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
+| B6b | What is the total AED amount that flowed through RING-001's consolidation network? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
 
 ## Set C — S6 Analyst-Friendly Wording (Not Counted)
 
@@ -46,57 +46,55 @@
 |---|----------|------|--------|
 | C1 | Show me all hub accounts that are potential mule-ring consolidation points. | PASS | Both hubs ['A0000046', 'A0000095'] found; 2 account(s) total, all within planted rings |
 | C2 | Show all cross-bank inbound credit transactions for account A0000095. | PASS | A0000095: 2 row(s) with cross-bank evidence [NOTE: filing decision deferred to Verifier agent] |
-| C3 | Which accounts share a device or national ID across more than one bank? | PASS | RING-002 national_id_hash found at 3 banks; 1881 total signals |
-| C4 | Show all structuring accounts with near-threshold cash deposits. | FAIL | No accounts returned; expected ['A0000343'] |
+| C3 | Which accounts share a device or national ID across more than one bank? | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
+| C4 | Show all structuring accounts with near-threshold cash deposits. | PASS | Exactly A0000343 returned (RING-003 structuring account) |
 | C5 | Which regulatory obligations does typology RING-001 touch, and are our controls adequate? | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
-| C6 | What is the total transaction amount for the funnel and consolidation accounts in typology RING-001? | FAIL | AED 708,897.53 (column: total_transaction_amount) differs from ground truth AED 372,968.44 by 90.1% (tolerance: 1%) |
+| C6 | What is the total transaction amount for the funnel and consolidation accounts in typology RING-001? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
 
 ## Failure Analysis (Sets A + B)
 
-### A2: Why was account A0000095 flagged, and should we file?
+### B2a: What evidence do we have against account A0000095 — is there enough to file a report?
 
 - **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: FAILED: No SQL extracted from response
-- **Error**: unknown
-
-### A6: What is the total value moving through the funnel accounts of ring RING-001?
-
-- **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: AED 150,060.57 (column: cross_bank_inbound_amount) differs from ground truth AED 372,968.44 by 59.8% (tolerance: 1%)
+- **Reason**: A0000095: 4 row(s) but none show cross-bank evidence
 - **Generated SQL**:
 ```sql
-SELECT *
+-- 1. Hub detection: is this account flagged as a cross-bank fraud hub?
+SELECT
+    'hub_accounts' AS evidence_source,
+    hub_burst_start::VARCHAR AS col1,
+    hub_burst_end::VARCHAR AS col2,
+    hub_inbound_amount::VARCHAR AS col3,
+    hub_inbound_transfers::VARCHAR AS col4,
+    hub_source_banks::VARCHAR AS col5,
+    NULL AS col6,
+    NULL AS col7
 FROM SEMANTIC_VIEW(
     ARGUS.GOVERNED.ARGUS_FRAUD_SV
-    METRICS cross_bank_inbound_amount
-    DIMENSIONS evidence.typology_id
-    WHERE evidence.typology_id = 'RING-001'
-      AND evidence.role IN ('funnel', 'consolidation')
+    FACTS hub_accounts.hub_burst_start,
+          hub_accounts.hub_burst_end,
+          hub_accounts.hub_inbound_amount,
+          hub_accounts.hub_inbound_transfers,
+          hub_accounts.hub_source_banks,
+          accounts.account_id
+    WHERE accounts.account_id = 'A0000095'
 )
+
+UNION ALL
+
+-- 2. Structuring: near-threshold cash deposits
+SELECT
+    'structuring' AS evidence_source,
+    str
 ```
 
-### B2a: What evidence do we have against account A0000095 — is there enough to file a report?
+### B2b: Give me a summary of suspicious activity for account A0000095.
 
 - **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
 - **Reason**: SQL execution error: 100038 (22018): Numeric value 'A0000095' is not recognized
 - **Generated SQL**:
 ```sql
-WITH __accounts AS (
-  SELECT
-    account_id,
-    status AS account_status,
-    account_type,
-    iban,
-    bank_id,
-    customer_id
-  FROM ARGUS.RAW.ACCOUNTS
-), __customers AS (
-  SELECT
-    kyc_risk_rating,
-    nationality,
-    customer_id
-  FROM ARGUS.RAW.CUSTOMERS
-), __alerts AS (
+WITH __alerts AS (
   SELECT
     raised_at AS alert_raised_at,
     status AS alert_status,
@@ -115,102 +113,16 @@ WITH __accounts AS (
     inbound_transfers AS hub_inbound_transfers,
     source_banks AS hub_source_banks
   FROM ARGUS.CURATED.DT_HUB_ACCOUNTS
-
-```
-
-### B2b: Give me a summary of suspicious activity for account A0000095.
-
-- **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: A0000095: 1 row(s) but none show cross-bank evidence
-- **Generated SQL**:
-```sql
-WITH __accounts AS (
-  SELECT
-    account_id,
-    status AS account_status,
-    account_type,
-    iban,
-    bank_id,
-    customer_id
-  FROM ARGUS.RAW.ACCOUNTS
-), __customers AS (
-  SELECT
-    kyc_risk_rating,
-    nationality,
-    customer_id
-  FROM ARGUS.RAW.CUSTOMERS
-), __alerts AS (
-  SELECT
-    raised_at AS alert_raised_at,
-    status AS alert_status,
-    account_id,
-    alert_id,
-    inbound_amount AS alert_inbound_amount
-  FROM ARGUS.GOVERNED.LIVE_ALERTS
-), __hub_accounts AS (
-  SELECT
-    burst_end AS hub_burst_end,
-    burst_start AS hub_burst_start,
-    account_id,
-    inbound_amount AS hub_inbound_amount,
-    inbound_transfers AS hub_inbound_transfers,
-    source_banks AS hub_source_banks
-  FROM ARGUS.CURATED.DT_HUB_ACCOUNTS
 ), __structuring AS (
   SELECT
-    first_deposit AS stru
-```
+    first_deposit AS structuring_first_deposit,
+    last_deposit AS structuring_last_deposit,
+    account_id,
+    near_threshold_deposits,
+    total_amount AS structuring_total
+  FROM ARGUS.CURATED.DT_STRUCTURING
+), __transactions AS (
 
-### B4a: Are there accounts making repeated cash deposits just below the AED 55,000 reporting limit?
-
-- **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: No accounts returned; expected ['A0000343']
-- **Generated SQL**:
-```sql
-SELECT *
-FROM SEMANTIC_VIEW(
-    ARGUS.GOVERNED.ARGUS_FRAUD_SV
-    FACTS structuring.structuring_account_id,
-          structuring.structuring_bank_id,
-          structuring.near_threshold_deposits,
-          structuring.structuring_total,
-          structuring.structuring_first_deposit,
-          structuring.structuring_last_deposit
-    WHERE structuring.near_threshold_deposits >= 1
-) AS sv
-ORDER BY sv.near_threshold_deposits DESC NULLS LAST
-```
-
-### B6a: How much money in total passed through the collection accounts of ring RING-001?
-
-- **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: AED 150,060.57 (column: cross_bank_inbound_amount) differs from ground truth AED 372,968.44 by 59.8% (tolerance: 1%)
-- **Generated SQL**:
-```sql
-SELECT *
-FROM SEMANTIC_VIEW(
-    ARGUS.GOVERNED.ARGUS_FRAUD_SV
-    METRICS cross_bank_inbound_amount
-    DIMENSIONS evidence.typology_id, evidence.role
-    WHERE evidence.typology_id = 'RING-001'
-      AND evidence.role IN ('funnel', 'consolidation')
-)
-```
-
-### B6b: What is the total AED amount that flowed through RING-001's consolidation network?
-
-- **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: AED 150,060.57 (column: cross_bank_inbound_amount) differs from ground truth AED 372,968.44 by 59.8% (tolerance: 1%)
-- **Generated SQL**:
-```sql
-SELECT *
-FROM SEMANTIC_VIEW(
-    ARGUS.GOVERNED.ARGUS_FRAUD_SV
-    METRICS cross_bank_inbound_amount
-    DIMENSIONS evidence.typology_id, evidence.role
-    WHERE evidence.typology_id = 'RING-001'
-      AND evidence.role IN ('funnel', 'consolidation')
-)
 ```
 
 

@@ -1,71 +1,181 @@
-# ARGUS · Regulatory Twin Semantic View Definition + Verified Queries
-# Created by TCC · Snowflake CoCo Hack (GCC Edition) · Session S6/S6b
+# Generated from the deployed view; edit sql/11_semantic_views.sql and redeploy,
+# then re-export.
 #
-# Extended from the Week 2 base to include TYPOLOGY_EXPOSURE
-# (typology -> obligation -> gap mapping with severity and rationale).
+# ARGUS · Regulatory Twin Semantic View Definition + Verified Queries
+# Created by TCC · Snowflake CoCo Hack (GCC Edition) · Session S6/S6b/S6c
+#
+# S6c fix: added gap_flag fact, open_gap_count / obligation_count metrics,
+# clause_text and required_scope dimensions. Aliased table names to plural form
+# (regulations, clauses, obligations) for consistency.
 
-semantic_view: ARGUS.GOVERNED.ARGUS_REGTWIN_SV
-
-custom_instructions: >
-  Terminology mapping:
-  - "controls adequate" or "are our controls adequate" = check the is_gap column
-    in typology_exposure. is_gap=TRUE means controls are NOT adequate (there is a gap).
-    is_gap=FALSE means controls are adequate.
-  - "regulatory obligations" a typology "touches" = rows in typology_exposure for that
-    typology_id. Each row maps a typology to an obligation with gap analysis.
-  - "regulatory exposure" = same as obligations with gaps (is_gap=TRUE).
-  - severity column values: 'HIGH', 'MEDIUM', 'NONE'. HIGH means cross-bank coverage
-    is required but no active control provides it.
-  - When filtering by typology, use typology_id (e.g., 'RING-001').
-
+name: ARGUS_REGTWIN_SV
+description: "ARGUS regulatory digital twin: which obligations are covered by active, adequately-scoped controls. INSTRUCTIONS: controls adequate means is_gap = FALSE. regulatory obligations a typology touches = rows in typology_exposure for that typology_id. regulatory exposure = obligations with is_gap = TRUE. severity HIGH means cross-bank coverage required but no active control provides it. Filter by typology_id (e.g. RING-001)."
 tables:
-  - name: regulations
-    base_table: ARGUS.GOVERNED.REGULATION
-    primary_key: [regulation_id]
-    synonyms: [circular, rulebook, regulation]
-
-  - name: clauses
-    base_table: ARGUS.GOVERNED.CLAUSE
-    primary_key: [clause_id]
-    synonyms: [article, section]
-
-  - name: obligations
-    base_table: ARGUS.GOVERNED.OBLIGATION
-    primary_key: [obligation_id]
-    synonyms: [requirement, duty, regulatory requirement]
-
-  - name: gaps
-    base_table: ARGUS.GOVERNED.CONTROL_GAP
-    primary_key: [obligation_id]
-    synonyms: [control gap, coverage gap]
-
-  - name: typology_exposure
-    base_table: ARGUS.GOVERNED.TYPOLOGY_EXPOSURE
-    primary_key: [typology_id, obligation_id]
-    synonyms: [typology gap, typology obligation, ring exposure, regulatory exposure, control adequacy]
-    comment: >
-      Pre-computed typology-to-obligation mapping with gap analysis: shows which
-      regulatory obligations each typology touches and whether controls are adequate.
-      Columns: typology_id, obligation_id, obligation_text, regulator, article_ref,
-      is_gap (TRUE=gap exists), severity (HIGH/MEDIUM/NONE), rationale.
-
+  - name: CLAUSES
+    synonyms:
+      - article
+      - section
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: CLAUSE
+    primary_key:
+      columns:
+        - CLAUSE_ID
+    dimensions:
+      - name: ARTICLE_REF
+        expr: article_ref
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: CLAUSE_ID
+        expr: clause_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: CLAUSE_TEXT
+        description: Full text of the regulatory clause
+        expr: text
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: GAPS
+    synonyms:
+      - control gap
+      - coverage gap
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: CONTROL_GAP
+    primary_key:
+      columns:
+        - OBLIGATION_ID
+    facts:
+      - name: GAP_FLAG
+        description: "Binary flag: 1 when there is a control gap, 0 when adequately covered"
+        expr: "IFF(is_gap, 1, 0)"
+        data_type: "NUMBER(1,0)"
+        access_modifier: public_access
+    metrics:
+      - name: OPEN_GAP_COUNT
+        description: Number of obligations with open control gaps
+        expr: SUM(gaps.gap_flag)
+        access_modifier: public_access
+  - name: OBLIGATIONS
+    synonyms:
+      - requirement
+      - duty
+      - regulatory requirement
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: OBLIGATION
+    primary_key:
+      columns:
+        - OBLIGATION_ID
+    dimensions:
+      - name: OBLIGATION_ID
+        expr: obligation_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: OBLIGATION_TEXT
+        expr: obligation_text
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: REQUIRED_SCOPE
+        description: single_bank or cross_bank
+        expr: required_scope
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+    metrics:
+      - name: OBLIGATION_COUNT
+        description: Number of distinct regulatory obligations
+        expr: COUNT(DISTINCT obligations.obligation_id)
+        access_modifier: public_access
+  - name: REGULATIONS
+    synonyms:
+      - circular
+      - rulebook
+      - regulation
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: REGULATION
+    primary_key:
+      columns:
+        - REGULATION_ID
+    dimensions:
+      - name: REGULATION_ID
+        expr: regulation_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: REGULATOR
+        expr: regulator
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: TITLE
+        expr: title
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: TYPOLOGY_EXPOSURE
+    synonyms:
+      - typology gap
+      - typology obligation
+      - ring exposure
+      - regulatory exposure
+      - control adequacy
+    description: Pre-computed typology-to-obligation mapping with gap analysis. Shows which regulatory obligations each typology touches and whether controls are adequate. is_gap TRUE means gap exists. severity HIGH/MEDIUM/NONE.
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: TYPOLOGY_EXPOSURE
+    primary_key:
+      columns:
+        - TYPOLOGY_ID
+        - OBLIGATION_ID
+    dimensions:
+      - name: IS_GAP
+        description: TRUE means controls are NOT adequate (gap exists). FALSE means controls are adequate.
+        expr: is_gap
+        data_type: BOOLEAN
+        access_modifier: public_access
+      - name: RATIONALE
+        description: Explanation of why the gap exists or controls are adequate
+        expr: rationale
+        data_type: VARCHAR(134217728)
+        access_modifier: public_access
+      - name: SEVERITY
+        description: HIGH means cross-bank coverage required but missing. MEDIUM or NONE otherwise.
+        expr: severity
+        data_type: VARCHAR(6)
+        access_modifier: public_access
+      - name: TYPOLOGY_ID
+        description: Typology/ring identifier (e.g. RING-001)
+        expr: typology_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
 relationships:
-  - name: clause_to_reg
-    table: clauses
-    foreign_key: [regulation_id]
-    ref_table: regulations
-  - name: obligation_to_cl
-    table: obligations
-    foreign_key: [clause_id]
-    ref_table: clauses
-  - name: gap_to_obligation
-    table: gaps
-    foreign_key: [obligation_id]
-    ref_table: obligations
-  - name: exposure_to_obligation
-    table: typology_exposure
-    foreign_key: [obligation_id]
-    ref_table: obligations
+  - name: CLAUSE_TO_REG
+    left_table: CLAUSES
+    right_table: REGULATIONS
+    relationship_columns:
+      - left_column: REGULATION_ID
+        right_column: REGULATION_ID
+  - name: GAP_TO_OBLIGATION
+    left_table: GAPS
+    right_table: OBLIGATIONS
+    relationship_columns:
+      - left_column: OBLIGATION_ID
+        right_column: OBLIGATION_ID
+  - name: OBLIGATION_TO_CL
+    left_table: OBLIGATIONS
+    right_table: CLAUSES
+    relationship_columns:
+      - left_column: CLAUSE_ID
+        right_column: CLAUSE_ID
+  - name: EXPOSURE_TO_OBLIGATION
+    left_table: TYPOLOGY_EXPOSURE
+    right_table: OBLIGATIONS
+    relationship_columns:
+      - left_column: OBLIGATION_ID
+        right_column: OBLIGATION_ID
 
 # ──────────────────────────────────────────────────────────────────
 # Verified Queries — registered on this semantic view for Cortex Analyst

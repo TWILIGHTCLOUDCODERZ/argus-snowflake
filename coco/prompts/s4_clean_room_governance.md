@@ -50,6 +50,11 @@ Build a results table:
 - ACCOUNTADMIN → unchanged: 540 customers, real PII.
 Switch back to ACCOUNTADMIN at the end (`USE ROLE ACCOUNTADMIN; USE SECONDARY ROLES ALL;`).
 
+**Regression checks after the change** (the fraud semantic view now includes
+SHARED_BAD_ACTOR_SIGNAL, hub/structuring dynamic tables, LIVE_ALERTS and TYPOLOGY_EVIDENCE):
+- As ACCOUNTADMIN: `SELECT * FROM SEMANTIC_VIEW(ARGUS.GOVERNED.ARGUS_FRAUD_SV DIMENSIONS banks.bank_name METRICS transactions.cross_bank_amount)` still works.
+- Run `.venv/Scripts/python validation/validate_week2.py --backend snowflake` — must still report 6/6.
+
 Write objects, the verification table and an "Upgrade path to a real Snowflake Data
 Clean Room" section (one provider account per bank) to `evidence/coco_s4_governance.md`.
 

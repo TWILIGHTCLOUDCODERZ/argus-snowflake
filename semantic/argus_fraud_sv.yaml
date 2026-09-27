@@ -1,172 +1,496 @@
+# Generated from the deployed view; edit sql/11_semantic_views.sql and redeploy,
+# then re-export.
+#
 # ARGUS · Fraud Semantic View Definition + Verified Queries
-# Created by TCC · Snowflake CoCo Hack (GCC Edition) · Session S6/S6b
+# Created by TCC · Snowflake CoCo Hack (GCC Edition) · Session S6/S6b/S6c
 #
-# Extended from the Week 2 base to include curated signal objects:
-#   DT_HUB_ACCOUNTS, DT_STRUCTURING, SHARED_BAD_ACTOR_SIGNAL,
-#   LIVE_ALERTS, TYPOLOGY_EVIDENCE
-#
-# GOVERNANCE: No raw PII (full_name, national_id, phone, email, dob).
-# Only hashed identifiers and risk-rated dimensions are exposed.
+# S6c fix: removed redundant direct-to-BANKS relationships from TRANSACTIONS,
+# HUB_ACCOUNTS, STRUCTURING, ALERTS to eliminate multi-path error.
 
-semantic_view: ARGUS.GOVERNED.ARGUS_FRAUD_SV
-
-custom_instructions: >
-  IMPORTANT date handling: All data is from September 2026 (base_date 2026-09-01,
-  30-day window). When a user says "September 2026", "this month", "this week",
-  "recent", or "emerging", do NOT filter by CURRENT_DATE — query the full dataset.
-  Only apply date filters when the user gives explicit date bounds.
-
-  Terminology mapping:
-  - "emerging cross-bank fraud" or "cross-bank fraud we were exposed to" = accounts
-    receiving inbound transfers from 2+ different consortium banks in a short burst.
-    Use the hub_accounts table (DT_HUB_ACCOUNTS) which pre-computes this.
-  - "flagged" = the account appears in hub_accounts, structuring, shared_signals,
-    alerts, or evidence tables as a suspicious entity.
-  - "funnel accounts" or "collection accounts" or "consolidation network" of a ring =
-    accounts in the evidence table (TYPOLOGY_EVIDENCE) with role IN ('funnel','consolidation').
-  - "value moving through" funnel/hub/collection accounts = SUM of inbound cross-bank
-    credit transactions (direction='credit', counterparty_bank IN consortium banks,
-    counterparty_bank <> account's bank_id) for those accounts.
-  - "reporting threshold" or "reporting limit" = AED 55,000 cash transaction reporting
-    threshold (CBUAE Art. 15). "Just under the threshold" = cash deposits between
-    AED 52,000 and AED 55,000.
-  - "smurfing" = structuring = repeated cash deposits just below the reporting threshold.
-    Use the structuring table (DT_STRUCTURING) which pre-computes this.
-  - "shared identity" or "shared identifiers" across banks = entries in shared_signals
-    where identifier_type IN ('national_id','device','phone').
-  - Consortium banks: BANK_A, BANK_B, BANK_C. A "cross-bank" transaction has
-    counterparty_bank IN ('BANK_A','BANK_B','BANK_C') AND counterparty_bank <> bank_id.
-
+name: ARGUS_FRAUD_SV
+description: "ARGUS governed fraud semantic view. PII-free. INSTRUCTIONS: (1) All data is from September 2026. Do NOT filter by CURRENT_DATE. (2) emerging cross-bank fraud = hub_accounts (DT_HUB_ACCOUNTS). (3) When asked why an account was flagged or should we file, ALWAYS generate SQL to retrieve evidence data (cross-bank transactions, alerts, hub detection, shared signals for that account). The filing decision is for compliance officers. Show the data. Do not refuse. (4) value moving through funnel/collection/consolidation accounts = consortium_inbound_amount metric (SUM credit transactions from consortium banks including same-bank ring transfers). (5) reporting threshold = AED 55000. just under = cash deposits 52000-55000. (6) shared identity = shared_signals where identifier_type IN (national_id, device, phone). (7) suspicious activity for an account = check hub_accounts, structuring, shared_signals, alerts, evidence tables for that account plus cross-bank transactions."
 tables:
-  - name: banks
-    base_table: ARGUS.RAW.BANKS
-    primary_key: [bank_id]
-    synonyms: [institution, consortium member, financial institution]
-    comment: Participating GCC banks / NBFCs in the ARGUS consortium
-
-  - name: customers
-    base_table: ARGUS.RAW.CUSTOMERS
-    primary_key: [customer_id]
-    synonyms: [client, account holder]
-    comment: Customers. Only risk rating + hashed identifiers are exposed.
-
-  - name: accounts
-    base_table: ARGUS.RAW.ACCOUNTS
-    primary_key: [account_id]
-    synonyms: [account, IBAN]
-    comment: Deposit / current / wallet accounts
-
-  - name: transactions
-    base_table: ARGUS.RAW.TRANSACTIONS
-    primary_key: [txn_id]
-    synonyms: [payment, transfer, money movement, transaction]
-    comment: >
-      All money movements. A transaction is cross-bank when counterparty_bank is one
-      of BANK_A/BANK_B/BANK_C and differs from the account's bank_id. Column direction
-      is 'credit' (inbound) or 'debit' (outbound). Column channel is 'cash', 'transfer',
-      'card', or 'wallet'. Column counterparty_bank identifies the other bank.
-
-  - name: logins
-    base_table: ARGUS.RAW.DEVICE_LOGINS
-    primary_key: [login_id]
-    synonyms: [session, device login]
-    comment: Login events with hashed device / IP
-
-  - name: hub_accounts
-    base_table: ARGUS.CURATED.DT_HUB_ACCOUNTS
-    primary_key: [account_id]
-    synonyms: [mule hub, consolidation account, fan-in hub, collection point, emerging fraud, cross-bank fraud exposure]
-    comment: >
-      Pre-computed: accounts receiving inbound transfers from 2+ consortium banks
-      in a 7-day burst — candidate mule-ring consolidation hubs. This IS the answer
-      to "emerging cross-bank fraud". Columns: account_id, bank_id, source_banks,
-      inbound_transfers, inbound_amount, burst_start, burst_end.
-
-  - name: structuring
-    base_table: ARGUS.CURATED.DT_STRUCTURING
-    primary_key: [account_id]
-    synonyms: [smurfing, structuring account, near-CTR deposits, cash deposits under threshold, deposits below reporting limit]
-    comment: >
-      Pre-computed: accounts with clusters of cash deposits just below the AED 55,000
-      CTR reporting threshold — structuring / smurfing candidates. Columns: account_id,
-      bank_id, near_threshold_deposits, total_amount, first_deposit, last_deposit.
-
-  - name: shared_signals
-    base_table: ARGUS.GOVERNED.SHARED_BAD_ACTOR_SIGNAL
-    primary_key: [identifier_hash]
-    synonyms: [shared identity, cross-bank signal, bad actor signal, identity fraud signal, shared device, shared national ID]
-    comment: >
-      Privacy-preserving cross-bank signal: hashed identifiers (national_id, device,
-      phone) seen at 2+ banks. No raw PII — hashes only. Filter by identifier_type
-      IN ('national_id','device','phone') for identity sharing queries. Columns:
-      identifier_hash, identifier_type, contributing_bank_count, banks,
-      linked_accounts, risk_weight.
-
-  - name: alerts
-    base_table: ARGUS.GOVERNED.LIVE_ALERTS
-    primary_key: [alert_id]
-    synonyms: [alert, fraud alert, live alert]
-    comment: >
-      Active alerts raised by the pipeline — hub detection, structuring,
-      shared identity. Each alert links to one account.
-
-  - name: evidence
-    base_table: ARGUS.GOVERNED.TYPOLOGY_EVIDENCE
-    primary_key: [entity_id]
-    synonyms: [ring member, typology member, ring evidence, ring membership, funnel account, consolidation account]
-    comment: >
-      Typology membership: maps entities (accounts) to their role within a detected
-      fraud ring. Columns: typology_id, entity_type, entity_id, role, bank_id.
-      Role values: 'source_mule' (feeds money in), 'funnel' (per-bank concentrator),
-      'consolidation' (final collection point). "Funnel accounts" of a ring means
-      role IN ('funnel','consolidation').
-
+  - name: ACCOUNTS
+    synonyms:
+      - account
+      - IBAN
+    description: Deposit / current / wallet accounts
+    base_table:
+      database: ARGUS
+      schema: RAW
+      table: ACCOUNTS
+    primary_key:
+      columns:
+        - ACCOUNT_ID
+    dimensions:
+      - name: ACCOUNT_ID
+        expr: account_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: ACCOUNT_STATUS
+        expr: status
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: ACCOUNT_TYPE
+        expr: account_type
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: IBAN
+        expr: iban
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+    metrics:
+      - name: ACCOUNT_COUNT
+        expr: COUNT(DISTINCT accounts.account_id)
+        access_modifier: public_access
+  - name: ALERTS
+    synonyms:
+      - alert
+      - fraud alert
+      - live alert
+    description: Active alerts raised by the pipeline. Each alert links to one account.
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: LIVE_ALERTS
+    primary_key:
+      columns:
+        - ALERT_ID
+    dimensions:
+      - name: ALERT_RAISED_AT
+        description: Timestamp when the alert was raised
+        expr: raised_at
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+      - name: ALERT_STATUS
+        description: "Current alert status: OPEN, INVESTIGATING, CLOSED"
+        expr: status
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: ALERT_TYPE
+        description: "Alert category: hub_detection, structuring, shared_identity"
+        expr: alert_type
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+    facts:
+      - name: ALERT_INBOUND_AMOUNT
+        description: Inbound amount captured at alert time in AED
+        expr: inbound_amount
+        data_type: "NUMBER(18,2)"
+        access_modifier: public_access
+      - name: ALERT_SOURCE_BANKS
+        description: Number of source banks noted in the alert
+        expr: source_banks
+        data_type: "NUMBER(38,0)"
+        access_modifier: public_access
+    metrics:
+      - name: ALERT_COUNT
+        synonyms:
+          - number of alerts
+        expr: COUNT(DISTINCT alerts.alert_id)
+        access_modifier: public_access
+  - name: BANKS
+    synonyms:
+      - institution
+      - consortium member
+      - financial institution
+    description: Participating GCC banks / NBFCs in the ARGUS consortium
+    base_table:
+      database: ARGUS
+      schema: RAW
+      table: BANKS
+    primary_key:
+      columns:
+        - BANK_ID
+    dimensions:
+      - name: BANK_NAME
+        expr: bank_name
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: COUNTRY
+        expr: country
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: REGULATOR
+        synonyms:
+          - supervisor
+        expr: regulator
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: CUSTOMERS
+    synonyms:
+      - client
+      - account holder
+    description: Customers. Only risk rating + hashed identifiers are exposed.
+    base_table:
+      database: ARGUS
+      schema: RAW
+      table: CUSTOMERS
+    primary_key:
+      columns:
+        - CUSTOMER_ID
+    dimensions:
+      - name: KYC_RISK_RATING
+        synonyms:
+          - KYC risk
+          - customer risk
+        expr: kyc_risk_rating
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: NATIONALITY
+        expr: nationality
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: NATIONAL_ID_HASH
+        description: Salted hash only - raw national ID is never exposed
+        expr: national_id_hash
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: EVIDENCE
+    synonyms:
+      - ring member
+      - typology member
+      - ring evidence
+      - ring membership
+      - funnel member
+      - collection member
+    description: "Typology membership: maps entities (accounts) to their role within a detected fraud ring. Role values: source_mule, funnel, consolidation. Funnel accounts of a ring = role IN (funnel, consolidation). To compute value through funnel accounts, use the consortium_inbound_amount metric with evidence filtered by typology_id and role."
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: TYPOLOGY_EVIDENCE
+    primary_key:
+      columns:
+        - ENTITY_ID
+    dimensions:
+      - name: ENTITY_TYPE
+        description: "Type of entity in the ring: account or customer"
+        expr: entity_type
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: EVIDENCE_BANK
+        description: Bank where this ring member is located
+        expr: bank_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: ROLE
+        synonyms:
+          - ring role
+          - member role
+        description: "Role within the typology: source_mule, funnel, consolidation, layering_hop"
+        expr: role
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: TYPOLOGY_ID
+        description: Typology/ring identifier (e.g. RING-001)
+        expr: typology_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+    metrics:
+      - name: RING_MEMBER_COUNT
+        synonyms:
+          - members in ring
+        expr: COUNT(DISTINCT evidence.entity_id)
+        access_modifier: public_access
+  - name: HUB_ACCOUNTS
+    synonyms:
+      - mule hub
+      - consolidation account
+      - fan-in hub
+      - collection point
+      - emerging fraud
+      - cross-bank fraud exposure
+    description: "Pre-computed: accounts receiving inbound transfers from 2+ consortium banks in a 7-day burst. These ARE the emerging cross-bank fraud hubs."
+    base_table:
+      database: ARGUS
+      schema: CURATED
+      table: DT_HUB_ACCOUNTS
+    primary_key:
+      columns:
+        - ACCOUNT_ID
+    dimensions:
+      - name: HUB_BURST_END
+        description: Latest transfer in the hub detection burst window
+        expr: burst_end
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+      - name: HUB_BURST_START
+        description: Earliest transfer in the hub detection burst window
+        expr: burst_start
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+    facts:
+      - name: HUB_INBOUND_AMOUNT
+        description: Total inbound cross-bank value received by this hub account in AED
+        expr: inbound_amount
+        data_type: "NUMBER(30,2)"
+        access_modifier: public_access
+      - name: HUB_INBOUND_TRANSFERS
+        description: Count of inbound cross-bank transfers received by this hub
+        expr: inbound_transfers
+        data_type: "NUMBER(18,0)"
+        access_modifier: public_access
+      - name: HUB_SOURCE_BANKS
+        description: Number of distinct consortium banks sending funds to this hub
+        expr: source_banks
+        data_type: "NUMBER(18,0)"
+        access_modifier: public_access
+  - name: LOGINS
+    synonyms:
+      - session
+      - device login
+    description: Login events with hashed device / IP
+    base_table:
+      database: ARGUS
+      schema: RAW
+      table: DEVICE_LOGINS
+    primary_key:
+      columns:
+        - LOGIN_ID
+    dimensions:
+      - name: DEVICE_HASH
+        description: Hashed device fingerprint
+        expr: device_hash
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+  - name: SHARED_SIGNALS
+    synonyms:
+      - shared identity
+      - cross-bank signal
+      - bad actor signal
+      - identity fraud signal
+      - shared device
+      - shared national ID
+    description: "Privacy-preserving cross-bank signal: hashed identifiers (national_id, device, phone) seen at 2+ banks. Filter by identifier_type IN (national_id, device, phone) for identity sharing queries."
+    base_table:
+      database: ARGUS
+      schema: GOVERNED
+      table: SHARED_BAD_ACTOR_SIGNAL
+    primary_key:
+      columns:
+        - IDENTIFIER_HASH
+    dimensions:
+      - name: IDENTIFIER_HASH
+        description: Hashed identifier value - no raw PII
+        expr: identifier_hash
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: IDENTIFIER_TYPE
+        description: "Type of shared identifier: national_id, device, phone, or counterparty_iban"
+        expr: identifier_type
+        data_type: VARCHAR(17)
+        access_modifier: public_access
+    facts:
+      - name: SIGNAL_BANK_COUNT
+        description: Number of different banks where this hashed identifier appeared
+        expr: contributing_bank_count
+        data_type: "NUMBER(18,0)"
+        access_modifier: public_access
+      - name: SIGNAL_LINKED_ACCOUNTS
+        description: Number of distinct accounts linked to this shared identifier
+        expr: linked_accounts
+        data_type: "NUMBER(18,0)"
+        access_modifier: public_access
+      - name: SIGNAL_RISK_WEIGHT
+        description: "Composite risk weight: higher for national_id sharing, scaled by bank count"
+        expr: risk_weight
+        data_type: "NUMBER(21,1)"
+        access_modifier: public_access
+  - name: STRUCTURING
+    synonyms:
+      - smurfing
+      - structuring account
+      - near-CTR deposits
+      - cash deposits under threshold
+      - deposits below reporting limit
+    description: "Pre-computed: accounts with clusters of cash deposits just below the AED 55000 CTR reporting threshold."
+    base_table:
+      database: ARGUS
+      schema: CURATED
+      table: DT_STRUCTURING
+    primary_key:
+      columns:
+        - ACCOUNT_ID
+    dimensions:
+      - name: STRUCTURING_ACCOUNT_ID
+        description: Account ID of the structuring account
+        expr: account_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: STRUCTURING_BANK_ID
+        description: Bank of the structuring account
+        expr: bank_id
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: STRUCTURING_FIRST_DEPOSIT
+        description: Earliest near-threshold deposit timestamp
+        expr: first_deposit
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+      - name: STRUCTURING_LAST_DEPOSIT
+        description: Latest near-threshold deposit timestamp
+        expr: last_deposit
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+    facts:
+      - name: NEAR_THRESHOLD_DEPOSITS
+        description: Count of cash deposits in the 52000-55000 AED range for this account
+        expr: near_threshold_deposits
+        data_type: "NUMBER(18,0)"
+        access_modifier: public_access
+      - name: STRUCTURING_TOTAL
+        description: Sum of near-threshold cash deposits in AED
+        expr: total_amount
+        data_type: "NUMBER(30,2)"
+        access_modifier: public_access
+  - name: TRANSACTIONS
+    synonyms:
+      - payment
+      - transfer
+      - money movement
+      - transaction
+    description: "All money movements. direction is credit (inbound) or debit (outbound). channel is cash, transfer, card, wallet. counterparty_bank is the other partys bank. IMPORTANT: value moving through ring funnel accounts = SUM of credit transactions from consortium banks only (counterparty_bank IN BANK_A,BANK_B,BANK_C). This includes same-bank transfers within the ring."
+    base_table:
+      database: ARGUS
+      schema: RAW
+      table: TRANSACTIONS
+    primary_key:
+      columns:
+        - TXN_ID
+    dimensions:
+      - name: CHANNEL
+        expr: channel
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: COUNTERPARTY_BANK
+        expr: counterparty_bank
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: DIRECTION
+        expr: direction
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: PURPOSE_CODE
+        synonyms:
+          - purpose
+        expr: purpose_code
+        data_type: VARCHAR(16777216)
+        access_modifier: public_access
+      - name: TXN_DATE
+        synonyms:
+          - date
+          - day
+        expr: DATE(ts)
+        data_type: DATE
+        access_modifier: public_access
+      - name: TXN_WEEK
+        expr: "DATE_TRUNC('week', ts)"
+        data_type: TIMESTAMP_NTZ(9)
+        access_modifier: public_access
+    facts:
+      - name: IS_CONSORTIUM_INBOUND
+        description: 1 when this is an inbound credit from any consortium bank (including same-bank). USE THIS for computing value moving through ring funnel/consolidation accounts.
+        expr: "IFF(direction = 'credit' AND counterparty_bank IN ('BANK_A','BANK_B','BANK_C'), 1, 0)"
+        data_type: "NUMBER(1,0)"
+        access_modifier: public_access
+      - name: IS_CROSS_BANK
+        description: 1 when funds move between two different consortium banks
+        expr: "IFF(counterparty_bank IN ('BANK_A','BANK_B','BANK_C') AND counterparty_bank <> bank_id, 1, 0)"
+        data_type: "NUMBER(1,0)"
+        access_modifier: public_access
+      - name: IS_NEAR_CTR
+        description: 1 when a cash deposit sits just under the AED 55000 CTR threshold
+        expr: "IFF(channel = 'cash' AND direction = 'credit' AND amount BETWEEN 52000 AND 55000, 1, 0)"
+        data_type: "NUMBER(1,0)"
+        access_modifier: public_access
+      - name: TXN_AMOUNT
+        description: Transaction amount in AED
+        expr: amount
+        data_type: "NUMBER(18,2)"
+        access_modifier: public_access
+    metrics:
+      - name: CONSORTIUM_INBOUND_AMOUNT
+        synonyms:
+          - value through accounts
+          - value moving through
+          - ring value
+          - total value through funnel accounts
+          - total value through consolidation
+        description: Sum of inbound credit transactions from consortium banks. This is the correct measure for total value moving through funnel/consolidation accounts of a ring.
+        expr: SUM(transactions.txn_amount * transactions.is_consortium_inbound)
+        access_modifier: public_access
+      - name: CROSS_BANK_AMOUNT
+        synonyms:
+          - inter-bank flow
+        expr: SUM(transactions.txn_amount * transactions.is_cross_bank)
+        access_modifier: public_access
+      - name: CROSS_BANK_TXN_COUNT
+        expr: SUM(transactions.is_cross_bank)
+        access_modifier: public_access
+      - name: NEAR_CTR_DEPOSIT_COUNT
+        synonyms:
+          - structuring deposits
+          - smurfing deposits
+        expr: SUM(transactions.is_near_ctr)
+        access_modifier: public_access
+      - name: TOTAL_AMOUNT
+        synonyms:
+          - value
+          - volume
+        expr: SUM(transactions.txn_amount)
+        access_modifier: public_access
+      - name: TXN_COUNT
+        expr: COUNT(transactions.txn_amount)
+        access_modifier: public_access
 relationships:
-  - name: accounts_to_customers
-    table: accounts
-    foreign_key: [customer_id]
-    ref_table: customers
-  - name: accounts_to_banks
-    table: accounts
-    foreign_key: [bank_id]
-    ref_table: banks
-  - name: txn_to_accounts
-    table: transactions
-    foreign_key: [account_id]
-    ref_table: accounts
-  - name: logins_to_accounts
-    table: logins
-    foreign_key: [account_id]
-    ref_table: accounts
-  - name: hub_to_accounts
-    table: hub_accounts
-    foreign_key: [account_id]
-    ref_table: accounts
-  - name: hub_to_banks
-    table: hub_accounts
-    foreign_key: [bank_id]
-    ref_table: banks
-  - name: structuring_to_accounts
-    table: structuring
-    foreign_key: [account_id]
-    ref_table: accounts
-  - name: structuring_to_banks
-    table: structuring
-    foreign_key: [bank_id]
-    ref_table: banks
-  - name: alerts_to_accounts
-    table: alerts
-    foreign_key: [account_id]
-    ref_table: accounts
-  - name: alerts_to_banks
-    table: alerts
-    foreign_key: [bank_id]
-    ref_table: banks
-  - name: evidence_to_accounts
-    table: evidence
-    foreign_key: [entity_id]
-    ref_table: accounts
-    ref_key: [account_id]
+  - name: ACCOUNTS_TO_BANKS
+    left_table: ACCOUNTS
+    right_table: BANKS
+    relationship_columns:
+      - left_column: BANK_ID
+        right_column: BANK_ID
+  - name: ACCOUNTS_TO_CUSTOMERS
+    left_table: ACCOUNTS
+    right_table: CUSTOMERS
+    relationship_columns:
+      - left_column: CUSTOMER_ID
+        right_column: CUSTOMER_ID
+  - name: ALERTS_TO_ACCOUNTS
+    left_table: ALERTS
+    right_table: ACCOUNTS
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+  - name: EVIDENCE_TO_ACCOUNTS
+    left_table: EVIDENCE
+    right_table: ACCOUNTS
+    relationship_columns:
+      - left_column: ENTITY_ID
+        right_column: ACCOUNT_ID
+  - name: HUB_TO_ACCOUNTS
+    left_table: HUB_ACCOUNTS
+    right_table: ACCOUNTS
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+  - name: LOGINS_TO_ACCOUNTS
+    left_table: LOGINS
+    right_table: ACCOUNTS
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+  - name: STRUCTURING_TO_ACCOUNTS
+    left_table: STRUCTURING
+    right_table: ACCOUNTS
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
+  - name: TXN_TO_ACCOUNTS
+    left_table: TRANSACTIONS
+    right_table: ACCOUNTS
+    relationship_columns:
+      - left_column: ACCOUNT_ID
+        right_column: ACCOUNT_ID
 
 # ──────────────────────────────────────────────────────────────────
 # Verified Queries — registered on this semantic view for Cortex Analyst

@@ -41,16 +41,18 @@ Deterministic (seed 4471) — same output every run, so demos are reproducible.
 | RING-005 | Fan-in/fan-out mule ring | A,B,C | second mule ring for variety |
 | BENIGN-001 | *Hard negative:* household shares one tablet | A,B | must **not** be escalated — tests false positives |
 
-## Load into Snowflake (through CoCo)
-```sql
--- 1) create schema + stage, PUT the CSVs, COPY INTO
---    (CoCo can run these against your Snowflake connection)
-!source sql/01_raw_schema.sql
--- 2) build the privacy-preserving cross-bank signal
-!source sql/02_clean_room.sql
--- 3) sanity check the moat: identifiers seen at >1 bank should surface RING-002 etc.
-SELECT * FROM ARGUS.GOVERNED.shared_bad_actor_signal ORDER BY risk_weight DESC;
+## Load into Snowflake
+Uses the `argus` connection (key-pair auth) shared by the Snowflake CLI and CoCo.
+The full, current run order (including Week 2 objects) is in `README_WEEK2.md`.
+
+```bash
+snow sql -c argus -f sql/00_setup_warehouse.sql
+snow stage copy data/transactions.csv @ARGUS.RAW.ARGUS_STAGE -c argus --overwrite   # one file per command
+snow sql -c argus -f sql/01_raw_schema.sql
+snow sql -c argus -f sql/02_clean_room.sql
+snow sql -c argus -q "SELECT * FROM ARGUS.GOVERNED.shared_bad_actor_signal ORDER BY risk_weight DESC"
 ```
+Upload the five CSVs one at a time — Windows shells expand `*.csv` before `snow` sees it.
 
 ## How this maps to hackathon requirements
 - **CoCo — Planning phase:** ontology + solution design authored with CoCo.

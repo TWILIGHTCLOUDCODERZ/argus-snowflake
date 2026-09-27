@@ -1,71 +1,436 @@
 {
   "_comment": "ARGUS reg->control Digital Twin seed. Regulations/clauses/obligations are the EXPECTED extraction output (answer key for Cortex document extraction from policy_corpus/pdf). Controls, control_obligation and typology_obligation are the bank's internal control register and analyst-curated mappings. sql/05_regulatory_twin.sql mirrors this file.",
   "regulations": [
-    {"regulation_id": "REG-CBUAE-AML-2024", "regulator": "CBUAE", "title": "AML/CFT Guidelines for Financial Institutions", "effective_date": "2024-06-01", "source_uri": "gdrive://ARGUS Policy Corpus/CBUAE_AML_2024.pdf"},
-    {"regulation_id": "REG-FATF-R16", "regulator": "FATF", "title": "Recommendation 16 - Wire Transfers", "effective_date": "2019-06-21", "source_uri": "gdrive://ARGUS Policy Corpus/FATF_R16_WIRE.pdf"},
-    {"regulation_id": "REG-SAMA-AML-2023", "regulator": "SAMA", "title": "Rules Governing Anti-Money Laundering and Combating Terrorist Financing", "effective_date": "2023-01-15", "source_uri": "gdrive://ARGUS Policy Corpus/SAMA_AMLCTF_2023.pdf"},
-    {"regulation_id": "REG-CBB-FC-2024", "regulator": "CBB", "title": "CBB Rulebook - Financial Crime Module (FC)", "effective_date": "2024-03-01", "source_uri": "gdrive://ARGUS Policy Corpus/CBB_FC_MODULE_2024.pdf"}
+    {
+      "regulation_id": "REG-CBUAE-AML-2024",
+      "regulator": "CBUAE",
+      "title": "AML/CFT Guidelines for Financial Institutions",
+      "effective_date": "2024-06-01",
+      "source_uri": "gdrive://ARGUS Policy Corpus/CBUAE_AML_2024.pdf"
+    },
+    {
+      "regulation_id": "REG-FATF-R16",
+      "regulator": "FATF",
+      "title": "Recommendation 16 - Wire Transfers",
+      "effective_date": "2019-06-21",
+      "source_uri": "gdrive://ARGUS Policy Corpus/FATF_R16_WIRE.pdf"
+    },
+    {
+      "regulation_id": "REG-SAMA-AML-2023",
+      "regulator": "SAMA",
+      "title": "Rules Governing Anti-Money Laundering and Combating Terrorist Financing",
+      "effective_date": "2023-01-15",
+      "source_uri": "gdrive://ARGUS Policy Corpus/SAMA_AMLCTF_2023.pdf"
+    },
+    {
+      "regulation_id": "REG-CBB-FC-2024",
+      "regulator": "CBB",
+      "title": "CBB Rulebook - Financial Crime Module (FC)",
+      "effective_date": "2024-03-01",
+      "source_uri": "gdrive://ARGUS Policy Corpus/CBB_FC_MODULE_2024.pdf"
+    }
   ],
   "clauses": [
-    {"clause_id": "CL-01", "regulation_id": "REG-CBUAE-AML-2024", "article_ref": "Art. 15", "text": "Detect and report multiple cash deposits below the AED 55,000 CTR threshold indicating intent to evade reporting."},
-    {"clause_id": "CL-02", "regulation_id": "REG-CBUAE-AML-2024", "article_ref": "Art. 22", "text": "Reuse of the same identity, device, or contact to open accounts across institutions is a synthetic-identity red flag."},
-    {"clause_id": "CL-03", "regulation_id": "REG-FATF-R16", "article_ref": "Sec. 16.4", "text": "Monitor layering and circular flows that move through a chain of institutions and return near origin."},
-    {"clause_id": "CL-04", "regulation_id": "REG-CBUAE-AML-2024", "article_ref": "Art. 31", "text": "Monitor money mule networks: rapid pass-through, fan-in/fan-out structures, consolidation of many inflows."},
-    {"clause_id": "CL-05", "regulation_id": "REG-SAMA-AML-2023", "article_ref": "Art. 8", "text": "Identify money mule and pass-through accounts receiving funds from multiple parties or institutions; single-bank monitoring is not sufficient."},
-    {"clause_id": "CL-06", "regulation_id": "REG-SAMA-AML-2023", "article_ref": "Art. 12", "text": "Detect series of cash deposits structured below the cash transaction reporting threshold and report to GDFI."},
-    {"clause_id": "CL-07", "regulation_id": "REG-SAMA-AML-2023", "article_ref": "Art. 17", "text": "Determine whether a suspicious identifier is associated with customers at other institutions using privacy-preserving mechanisms."},
-    {"clause_id": "CL-08", "regulation_id": "REG-CBB-FC-2024", "article_ref": "FC-1.5", "text": "Detect the same identity document or device used at more than one licensee; own-customer checks do not satisfy this."},
-    {"clause_id": "CL-09", "regulation_id": "REG-CBB-FC-2024", "article_ref": "FC-4.2", "text": "Enhanced monitoring of GCC cross-border corridor transfers, chains across institutions and flows returning near origin."},
-    {"clause_id": "CL-10", "regulation_id": "REG-CBB-FC-2024", "article_ref": "FC-6.1", "text": "File an STR with the Financial Intelligence Directorate within three business days of forming suspicion."}
+    {
+      "clause_id": "CL-01",
+      "regulation_id": "REG-CBUAE-AML-2024",
+      "article_ref": "Art. 15",
+      "text": "Detect and report multiple cash deposits below the AED 55,000 CTR threshold indicating intent to evade reporting."
+    },
+    {
+      "clause_id": "CL-02",
+      "regulation_id": "REG-CBUAE-AML-2024",
+      "article_ref": "Art. 22",
+      "text": "Reuse of the same identity, device, or contact to open accounts across institutions is a synthetic-identity red flag."
+    },
+    {
+      "clause_id": "CL-03",
+      "regulation_id": "REG-FATF-R16",
+      "article_ref": "Sec. 16.4",
+      "text": "Monitor layering and circular flows that move through a chain of institutions and return near origin."
+    },
+    {
+      "clause_id": "CL-04",
+      "regulation_id": "REG-CBUAE-AML-2024",
+      "article_ref": "Art. 31",
+      "text": "Monitor money mule networks: rapid pass-through, fan-in/fan-out structures, consolidation of many inflows."
+    },
+    {
+      "clause_id": "CL-05",
+      "regulation_id": "REG-SAMA-AML-2023",
+      "article_ref": "Art. 8",
+      "text": "Identify money mule and pass-through accounts receiving funds from multiple parties or institutions; single-bank monitoring is not sufficient."
+    },
+    {
+      "clause_id": "CL-06",
+      "regulation_id": "REG-SAMA-AML-2023",
+      "article_ref": "Art. 12",
+      "text": "Detect series of cash deposits structured below the cash transaction reporting threshold and report to GDFI."
+    },
+    {
+      "clause_id": "CL-07",
+      "regulation_id": "REG-SAMA-AML-2023",
+      "article_ref": "Art. 17",
+      "text": "Determine whether a suspicious identifier is associated with customers at other institutions using privacy-preserving mechanisms."
+    },
+    {
+      "clause_id": "CL-08",
+      "regulation_id": "REG-CBB-FC-2024",
+      "article_ref": "FC-1.5",
+      "text": "Detect the same identity document or device used at more than one licensee; own-customer checks do not satisfy this."
+    },
+    {
+      "clause_id": "CL-09",
+      "regulation_id": "REG-CBB-FC-2024",
+      "article_ref": "FC-4.2",
+      "text": "Enhanced monitoring of GCC cross-border corridor transfers, chains across institutions and flows returning near origin."
+    },
+    {
+      "clause_id": "CL-10",
+      "regulation_id": "REG-CBB-FC-2024",
+      "article_ref": "FC-6.1",
+      "text": "File an STR with the Financial Intelligence Directorate within three business days of forming suspicion."
+    }
   ],
   "obligations": [
-    {"obligation_id": "OB-01", "clause_id": "CL-01", "obligation_text": "Detect and file on cash structuring below CTR threshold", "category": "AML", "required_scope": "single_bank"},
-    {"obligation_id": "OB-02", "clause_id": "CL-02", "obligation_text": "Detect reuse of identity/device across institutions", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-03", "clause_id": "CL-03", "obligation_text": "Monitor cross-institution layering and circular flows", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-04", "clause_id": "CL-04", "obligation_text": "Detect fan-in/fan-out money mule networks", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-05", "clause_id": "CL-05", "obligation_text": "Identify mule / pass-through accounts fed from multiple institutions", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-06", "clause_id": "CL-06", "obligation_text": "Detect and report cash structuring below the CTR threshold", "category": "AML", "required_scope": "single_bank"},
-    {"obligation_id": "OB-07", "clause_id": "CL-07", "obligation_text": "Check suspicious identifiers against other institutions privately", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-08", "clause_id": "CL-08", "obligation_text": "Detect duplicate identities/devices across licensees", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-09", "clause_id": "CL-09", "obligation_text": "Monitor cross-border corridor chains and returning flows", "category": "AML", "required_scope": "cross_bank"},
-    {"obligation_id": "OB-10", "clause_id": "CL-10", "obligation_text": "File STRs within three business days of suspicion", "category": "Reporting", "required_scope": "single_bank"}
+    {
+      "obligation_id": "OB-01",
+      "clause_id": "CL-01",
+      "obligation_text": "Detect and file on cash structuring below CTR threshold",
+      "category": "AML",
+      "required_scope": "single_bank"
+    },
+    {
+      "obligation_id": "OB-02",
+      "clause_id": "CL-02",
+      "obligation_text": "Detect reuse of identity/device across institutions",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-03",
+      "clause_id": "CL-03",
+      "obligation_text": "Monitor cross-institution layering and circular flows",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-04",
+      "clause_id": "CL-04",
+      "obligation_text": "Detect fan-in/fan-out money mule networks",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-05",
+      "clause_id": "CL-05",
+      "obligation_text": "Identify mule / pass-through accounts fed from multiple institutions",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-06",
+      "clause_id": "CL-06",
+      "obligation_text": "Detect and report cash structuring below the CTR threshold",
+      "category": "AML",
+      "required_scope": "single_bank"
+    },
+    {
+      "obligation_id": "OB-07",
+      "clause_id": "CL-07",
+      "obligation_text": "Check suspicious identifiers against other institutions privately",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-08",
+      "clause_id": "CL-08",
+      "obligation_text": "Detect duplicate identities/devices across licensees",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-09",
+      "clause_id": "CL-09",
+      "obligation_text": "Monitor cross-border corridor chains and returning flows",
+      "category": "AML",
+      "required_scope": "cross_bank"
+    },
+    {
+      "obligation_id": "OB-10",
+      "clause_id": "CL-10",
+      "obligation_text": "File STRs within three business days of suspicion",
+      "category": "Reporting",
+      "required_scope": "single_bank"
+    }
   ],
   "controls": [
-    {"control_id": "C-01", "name": "CTR structuring monitor", "description": "Rule flags >=6 near-threshold cash credits per account per week.", "coverage_scope": "single_bank", "owner": "AML Ops", "status": "active"},
-    {"control_id": "C-05", "name": "KYC identity uniqueness check", "description": "Checks identity uniqueness within this bank only.", "coverage_scope": "single_bank", "owner": "KYC", "status": "active"},
-    {"control_id": "C-12", "name": "Cross-institution network monitoring", "description": "Consortium graph monitoring across banks via clean room.", "coverage_scope": "cross_bank", "owner": "Fin Crime", "status": "not_deployed"},
-    {"control_id": "C-20", "name": "STR filing workflow", "description": "Case-to-FIU filing workflow with 3-business-day SLA tracking.", "coverage_scope": "single_bank", "owner": "MLRO Office", "status": "active"}
+    {
+      "control_id": "C-01",
+      "name": "CTR structuring monitor",
+      "description": "Rule flags >=6 near-threshold cash credits per account per week.",
+      "coverage_scope": "single_bank",
+      "owner": "AML Ops",
+      "status": "active"
+    },
+    {
+      "control_id": "C-05",
+      "name": "KYC identity uniqueness check",
+      "description": "Checks identity uniqueness within this bank only.",
+      "coverage_scope": "single_bank",
+      "owner": "KYC",
+      "status": "active"
+    },
+    {
+      "control_id": "C-12",
+      "name": "Cross-institution network monitoring",
+      "description": "Consortium graph monitoring across banks via clean room.",
+      "coverage_scope": "cross_bank",
+      "owner": "Fin Crime",
+      "status": "not_deployed"
+    },
+    {
+      "control_id": "C-20",
+      "name": "STR filing workflow",
+      "description": "Case-to-FIU filing workflow with 3-business-day SLA tracking.",
+      "coverage_scope": "single_bank",
+      "owner": "MLRO Office",
+      "status": "active"
+    }
   ],
   "control_obligation": [
-    {"control_id": "C-01", "obligation_id": "OB-01"},
-    {"control_id": "C-01", "obligation_id": "OB-06"},
-    {"control_id": "C-05", "obligation_id": "OB-02"},
-    {"control_id": "C-05", "obligation_id": "OB-08"},
-    {"control_id": "C-12", "obligation_id": "OB-03"},
-    {"control_id": "C-12", "obligation_id": "OB-04"},
-    {"control_id": "C-12", "obligation_id": "OB-05"},
-    {"control_id": "C-12", "obligation_id": "OB-07"},
-    {"control_id": "C-12", "obligation_id": "OB-09"},
-    {"control_id": "C-20", "obligation_id": "OB-10"}
+    {
+      "control_id": "C-01",
+      "obligation_id": "OB-01"
+    },
+    {
+      "control_id": "C-01",
+      "obligation_id": "OB-06"
+    },
+    {
+      "control_id": "C-05",
+      "obligation_id": "OB-02"
+    },
+    {
+      "control_id": "C-05",
+      "obligation_id": "OB-08"
+    },
+    {
+      "control_id": "C-12",
+      "obligation_id": "OB-03"
+    },
+    {
+      "control_id": "C-12",
+      "obligation_id": "OB-04"
+    },
+    {
+      "control_id": "C-12",
+      "obligation_id": "OB-05"
+    },
+    {
+      "control_id": "C-12",
+      "obligation_id": "OB-07"
+    },
+    {
+      "control_id": "C-12",
+      "obligation_id": "OB-09"
+    },
+    {
+      "control_id": "C-20",
+      "obligation_id": "OB-10"
+    }
   ],
   "control_data_lineage": [
-    {"control_id": "C-01", "data_object": "ARGUS.CURATED.DT_STRUCTURING", "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"},
-    {"control_id": "C-05", "data_object": "ARGUS.RAW.customers", "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"},
-    {"control_id": "C-12", "data_object": "ARGUS.GOVERNED.shared_bad_actor_signal", "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"},
-    {"control_id": "C-20", "data_object": "ARGUS.GOVERNED.LIVE_ALERTS", "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"}
+    {
+      "control_id": "C-01",
+      "data_object": "ARGUS.CURATED.DT_STRUCTURING",
+      "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"
+    },
+    {
+      "control_id": "C-05",
+      "data_object": "ARGUS.RAW.customers",
+      "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"
+    },
+    {
+      "control_id": "C-12",
+      "data_object": "ARGUS.GOVERNED.shared_bad_actor_signal",
+      "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"
+    },
+    {
+      "control_id": "C-20",
+      "data_object": "ARGUS.GOVERNED.LIVE_ALERTS",
+      "semantic_view": "ARGUS.GOVERNED.argus_fraud_sv"
+    }
   ],
   "typology_obligation": [
-    {"typology_id": "RING-001", "obligation_id": "OB-04"}, {"typology_id": "RING-001", "obligation_id": "OB-03"},
-    {"typology_id": "RING-001", "obligation_id": "OB-05"}, {"typology_id": "RING-001", "obligation_id": "OB-10"},
-    {"typology_id": "RING-002", "obligation_id": "OB-02"}, {"typology_id": "RING-002", "obligation_id": "OB-07"},
-    {"typology_id": "RING-002", "obligation_id": "OB-08"}, {"typology_id": "RING-002", "obligation_id": "OB-10"},
-    {"typology_id": "RING-003", "obligation_id": "OB-01"}, {"typology_id": "RING-003", "obligation_id": "OB-06"},
-    {"typology_id": "RING-003", "obligation_id": "OB-10"},
-    {"typology_id": "RING-004", "obligation_id": "OB-03"}, {"typology_id": "RING-004", "obligation_id": "OB-09"},
-    {"typology_id": "RING-004", "obligation_id": "OB-10"},
-    {"typology_id": "RING-005", "obligation_id": "OB-04"}, {"typology_id": "RING-005", "obligation_id": "OB-03"},
-    {"typology_id": "RING-005", "obligation_id": "OB-05"}, {"typology_id": "RING-005", "obligation_id": "OB-10"},
-    {"typology_id": "RING-006", "obligation_id": "OB-04"}, {"typology_id": "RING-006", "obligation_id": "OB-03"},
-    {"typology_id": "RING-006", "obligation_id": "OB-05"}, {"typology_id": "RING-006", "obligation_id": "OB-10"}
-  ]
+    {
+      "typology_id": "RING-001",
+      "obligation_id": "OB-04"
+    },
+    {
+      "typology_id": "RING-001",
+      "obligation_id": "OB-03"
+    },
+    {
+      "typology_id": "RING-001",
+      "obligation_id": "OB-05"
+    },
+    {
+      "typology_id": "RING-001",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_id": "RING-002",
+      "obligation_id": "OB-02"
+    },
+    {
+      "typology_id": "RING-002",
+      "obligation_id": "OB-07"
+    },
+    {
+      "typology_id": "RING-002",
+      "obligation_id": "OB-08"
+    },
+    {
+      "typology_id": "RING-002",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_id": "RING-003",
+      "obligation_id": "OB-01"
+    },
+    {
+      "typology_id": "RING-003",
+      "obligation_id": "OB-06"
+    },
+    {
+      "typology_id": "RING-003",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_id": "RING-004",
+      "obligation_id": "OB-03"
+    },
+    {
+      "typology_id": "RING-004",
+      "obligation_id": "OB-09"
+    },
+    {
+      "typology_id": "RING-004",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_id": "RING-005",
+      "obligation_id": "OB-04"
+    },
+    {
+      "typology_id": "RING-005",
+      "obligation_id": "OB-03"
+    },
+    {
+      "typology_id": "RING-005",
+      "obligation_id": "OB-05"
+    },
+    {
+      "typology_id": "RING-005",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_id": "RING-006",
+      "obligation_id": "OB-04"
+    },
+    {
+      "typology_id": "RING-006",
+      "obligation_id": "OB-03"
+    },
+    {
+      "typology_id": "RING-006",
+      "obligation_id": "OB-05"
+    },
+    {
+      "typology_id": "RING-006",
+      "obligation_id": "OB-10"
+    }
+  ],
+  "typology_classes": [
+    {
+      "typology_class": "FAN_IN_FAN_OUT_MULE",
+      "name": "Cross-bank fan-in/fan-out mule network",
+      "description": "Source mules push funds to per-bank funnels, which forward cross-bank to a consolidation account within a short burst."
+    },
+    {
+      "typology_class": "SHARED_IDENTITY",
+      "name": "Shared / synthetic identity across institutions",
+      "description": "The same identity document and/or device is used to hold accounts at several institutions."
+    },
+    {
+      "typology_class": "CASH_STRUCTURING",
+      "name": "Cash structuring below the reporting threshold",
+      "description": "Repeated cash deposits just under the CTR threshold within a few days."
+    },
+    {
+      "typology_class": "CIRCULAR_LAYERING",
+      "name": "Circular cross-bank layering",
+      "description": "Funds hop through a chain of institutions and return to or near the origin."
+    }
+  ],
+  "typology_class_obligation": [
+    {
+      "typology_class": "CASH_STRUCTURING",
+      "obligation_id": "OB-01"
+    },
+    {
+      "typology_class": "CASH_STRUCTURING",
+      "obligation_id": "OB-06"
+    },
+    {
+      "typology_class": "CASH_STRUCTURING",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_class": "CIRCULAR_LAYERING",
+      "obligation_id": "OB-03"
+    },
+    {
+      "typology_class": "CIRCULAR_LAYERING",
+      "obligation_id": "OB-09"
+    },
+    {
+      "typology_class": "CIRCULAR_LAYERING",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_class": "FAN_IN_FAN_OUT_MULE",
+      "obligation_id": "OB-03"
+    },
+    {
+      "typology_class": "FAN_IN_FAN_OUT_MULE",
+      "obligation_id": "OB-04"
+    },
+    {
+      "typology_class": "FAN_IN_FAN_OUT_MULE",
+      "obligation_id": "OB-05"
+    },
+    {
+      "typology_class": "FAN_IN_FAN_OUT_MULE",
+      "obligation_id": "OB-10"
+    },
+    {
+      "typology_class": "SHARED_IDENTITY",
+      "obligation_id": "OB-02"
+    },
+    {
+      "typology_class": "SHARED_IDENTITY",
+      "obligation_id": "OB-07"
+    },
+    {
+      "typology_class": "SHARED_IDENTITY",
+      "obligation_id": "OB-08"
+    },
+    {
+      "typology_class": "SHARED_IDENTITY",
+      "obligation_id": "OB-10"
+    }
+  ],
+  "_comment_typology_obligation": "typology_obligation (keyed by answer-key RING ids) is used ONLY by the offline sqlite test backend. Snowflake uses typology_class_obligation: discovered typologies map to obligations by class."
 }

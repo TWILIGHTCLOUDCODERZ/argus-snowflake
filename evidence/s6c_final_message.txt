@@ -1,0 +1,14 @@
+I'll start by reading the live DDL for both semantic views and understanding the current state of the project.Good, I can see both issues clearly. Let me read the existing files and validation scripts to understand the expected state.Let me check the table structures I need for the REGTWIN fixes.Now I have all the column structures. Let me set up the task list and start implementing.Writing the corrected DDL for both views. The fraud SV needs 4 redundant relationships removed, and the regtwin SV needs facts/metrics added plus table name aliasing.Deploying both semantic views now.FRAUD_SV deployed. Now deploying REGTWIN_SV.Both deployed. Now running the verification queries.Both verification queries pass — 3 banks with values and CBUAE/CBB/SAMA/FATF rows with gap counts. Now testing as ARGUS_ANALYST.Both pass as ARGUS_ANALYST. Switching back to ACCOUNTADMIN.Now re-exporting the YAML files from the deployed views.Good, I have the exported YAML. Now let me write the YAML files with the header comment and preserved verified queries. Let me also read the separate verified_queries.yaml.Now writing the YAML files with the exported content and header comments.Running both validation scripts now.validate_week2.py passes **6/6**. Now waiting for the analyst validator.Excellent results. Both validators pass:
+- **validate_week2.py**: 6/6
+- **validate_analyst.py**: Set A 6/6 (100%), Set B 10/12 (83%) — both targets metAll done. Here's the summary:
+
+**ARGUS_FRAUD_SV** — Removed 4 redundant direct-to-BANKS relationships (`TXN_TO_BANKS`, `HUB_TO_BANKS`, `STRUCTURING_TO_BANKS`, `ALERTS_TO_BANKS`) that caused the multi-path error. The cross_bank_amount query now returns 3 banks with values.
+
+**ARGUS_REGTWIN_SV** — Added `gap_flag` fact, `open_gap_count`/`obligation_count` metrics, `clause_text`/`required_scope` dimensions, and aliased tables to plural names. The regulator query now returns CBUAE/CBB/SAMA/FATF rows.
+
+**Files changed**: `sql/11_semantic_views.sql` (new, source of truth), `semantic/argus_fraud_sv.yaml`, `semantic/argus_regtwin_sv.yaml`, `evidence/coco_s6c_semantic_repair.md`.
+
+**Validation results**:
+- `validate_week2.py --backend snowflake`: **6/6**
+- `validate_analyst.py`: Set A **6/6** (100%), Set B **10/12** (83%) — both targets met
+- Both views work as `ARGUS_ANALYST` role

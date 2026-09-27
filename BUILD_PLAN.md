@@ -196,18 +196,18 @@ A new circular lands in Google Drive → Twin identifies the required detection 
 > Every task below is done **through CoCo**. Capture evidence per phase.
 
 ### Week 1 — Planning + Data foundation *(CoCo: Planning)*
-- [ ] Use CoCo to explore the problem, draft this design, and author the **ontology** and workflow.
-- [ ] CoCo generates **referentially consistent synthetic data for 3 banks**, with *planted* cross-bank rings + realistic clean noise (never production data).
-- [ ] Wire **Google Drive MCP**; drop in synthetic GCC circulars, AML manuals, LC/policy packets.
-- [ ] Stand up Snowflake schemas: `RAW`, `CURATED`, `GOVERNED`.
-- **Deliverable:** ontology doc + loaded synthetic datasets + policy corpus. **Evidence:** CoCo planning session recording.
+- [x] Use CoCo to explore the problem, draft this design, and author the **ontology** and workflow. *(S1: live-warehouse planning review)*
+- [x] CoCo generates **referentially consistent synthetic data for 3 banks**, with *planted* cross-bank rings + realistic clean noise (never production data). *(5 rings + 1 benign hard negative; S2 added the live-feed ring RING-006)*
+- [x] Wire **Google Drive MCP**; drop in synthetic GCC circulars, AML manuals, LC/policy packets. *(`workspace-mcp`, least privilege; 4 circulars (CBUAE, FATF, SAMA, CBB) + 3 past STRs; S7)*
+- [x] Stand up Snowflake schemas: `RAW`, `CURATED`, `GOVERNED`.
+- **Deliverable:** ontology doc + loaded synthetic datasets + policy corpus. **Evidence:** CoCo planning session transcript (`evidence/`) ✅ · live recording — *to do*.
 
 ### Week 2 — Pipelines, semantic layer, clean room *(CoCo: Development)*
-- [ ] CoCo builds ingestion + transformation pipelines (**dynamic tables, streams, tasks**) incl. near-real-time flow.
-- [ ] CoCo infers/authors **semantic views + verified queries**; validate against NL questions.
-- [ ] Build the **Data Clean Room**: salted-hash identifiers, privacy-preserving join, `shared_bad_actor_signal`.
-- [ ] CoCo Document AI / Cortex parses circulars → build the **reg→control twin** tables + Cortex Search index.
-- **Deliverable:** working governed NL→SQL + cross-bank graph + queryable twin. **Evidence:** CoCo dev-in-CLI clips.
+- [x] CoCo builds ingestion + transformation pipelines (**dynamic tables, streams, tasks**) incl. near-real-time flow. *(S3: stream → serverless task graph → incremental DTs; RING-006 caught at batch 10)*
+- [x] CoCo infers/authors **semantic views + verified queries**; validate against NL questions. *(S6/S6b: strict Cortex Analyst eval — verbatim 5–6/6, paraphrases 10–11/12)*
+- [x] Build the **Data Clean Room**: salted-hash identifiers, privacy-preserving join, `shared_bad_actor_signal`. *(single-account simulation — per-bank roles, row isolation, PII masking, secure signal (S4); real multi-account DCR = upgrade path)*
+- [x] CoCo Document AI / Cortex parses circulars → build the **reg→control twin** tables + Cortex Search index. *(S5: extraction 10/10, human-review queue, `POLICY_SEARCH`)*
+- **Deliverable:** working governed NL→SQL + cross-bank graph + queryable twin. **Evidence:** CoCo session transcripts (`evidence/README.md`) ✅ · dev-in-CLI clips — *to do*.
 
 ### Week 3 — Intelligence + Evidence + UI *(CoCo: Development)*
 - [ ] **Typology-discovery engine** (community/anomaly detection) + auto-generated explainable detection queries + **typology cards**.

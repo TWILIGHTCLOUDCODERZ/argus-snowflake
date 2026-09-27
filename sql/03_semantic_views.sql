@@ -1,3 +1,6 @@
+/* NOTE: superseded — the deployed semantic views are defined by semantic/argus_fraud_sv.yaml
+   and semantic/argus_regtwin_sv.yaml (extended by CoCo sessions S6/S6b, deployed with
+   `cortex agent-studio sv-deploy`). This file is kept as the original Week 2 definition. */
 /* ============================================================================
    ARGUS · 03_semantic_views.sql — governed semantic layer for Cortex Analyst.
    Created by TCC · Snowflake CoCo Hack (GCC Edition) · Week 2
