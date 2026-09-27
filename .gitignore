@@ -1,0 +1,24 @@
+# Local environment
+.venv/
+__pycache__/
+*.pyc
+
+# Secrets & local connection config — never commit
+*.p8
+*.pem
+*.key
+.env
+connections.toml
+config.toml
+.snowflake/
+
+# Streamlit local secrets
+.streamlit/secrets.toml
+
+# Google workspace-mcp OAuth tokens
+.credentials/
+
+# Google OAuth client JSON downloads — never commit
+client_secret*.json
+*oauth*client*.json
+senstive info/

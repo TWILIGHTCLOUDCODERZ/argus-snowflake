@@ -1,0 +1,10 @@
+I'll start by reading the generator script and the baseline MD5 file to understand the existing code structure.I've read the full generator and baseline. Now I'll implement the live feed extension. The code goes between `plant_benign_shared_device("BENIGN-001")` and the CSV writing section, ensuring existing lists remain untouched.Now I need to add the live_feed.csv write and the summary print line. Let me add the live_feed write after the existing CSV writes, and update the print block.Now let me run the generator and verify the MD5s match.All 5 historical CSVs match the baseline. Now let me verify the live feed details and RING-006 members.Everything checks out:
+
+**Historical CSVs** — all 5 MD5s match the baseline (byte-identical).
+
+**`data/live_feed.csv`** — 202 rows across 12 batches:
+- Batches 1-2, 9 (no ring activity), 11-12: 15 rows each (noise only)
+- Batches 3-7: 17-19 rows (noise + source→funnel transfers)
+- Batches 8, 10: 17 rows (noise + funnel→consolidation transfers)
+
+**RING-006** — 12 members: 9 source mules (3 per bank), 2 funnels (BANK_A, BANK_C), 1 consolidation (BANK_B). The ring forms gradually over batches 3-10, with consolidation in BANK_B as specified (different from RING-001/005 which consolidate in BANK_A).

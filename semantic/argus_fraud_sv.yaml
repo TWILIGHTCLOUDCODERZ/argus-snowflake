@@ -1,0 +1,292 @@
+# ARGUS · Fraud Semantic View Definition + Verified Queries
+# Created by TCC · Snowflake CoCo Hack (GCC Edition) · Session S6/S6b
+#
+# Extended from the Week 2 base to include curated signal objects:
+#   DT_HUB_ACCOUNTS, DT_STRUCTURING, SHARED_BAD_ACTOR_SIGNAL,
+#   LIVE_ALERTS, TYPOLOGY_EVIDENCE
+#
+# GOVERNANCE: No raw PII (full_name, national_id, phone, email, dob).
+# Only hashed identifiers and risk-rated dimensions are exposed.
+
+semantic_view: ARGUS.GOVERNED.ARGUS_FRAUD_SV
+
+custom_instructions: >
+  IMPORTANT date handling: All data is from September 2026 (base_date 2026-09-01,
+  30-day window). When a user says "September 2026", "this month", "this week",
+  "recent", or "emerging", do NOT filter by CURRENT_DATE — query the full dataset.
+  Only apply date filters when the user gives explicit date bounds.
+
+  Terminology mapping:
+  - "emerging cross-bank fraud" or "cross-bank fraud we were exposed to" = accounts
+    receiving inbound transfers from 2+ different consortium banks in a short burst.
+    Use the hub_accounts table (DT_HUB_ACCOUNTS) which pre-computes this.
+  - "flagged" = the account appears in hub_accounts, structuring, shared_signals,
+    alerts, or evidence tables as a suspicious entity.
+  - "funnel accounts" or "collection accounts" or "consolidation network" of a ring =
+    accounts in the evidence table (TYPOLOGY_EVIDENCE) with role IN ('funnel','consolidation').
+  - "value moving through" funnel/hub/collection accounts = SUM of inbound cross-bank
+    credit transactions (direction='credit', counterparty_bank IN consortium banks,
+    counterparty_bank <> account's bank_id) for those accounts.
+  - "reporting threshold" or "reporting limit" = AED 55,000 cash transaction reporting
+    threshold (CBUAE Art. 15). "Just under the threshold" = cash deposits between
+    AED 52,000 and AED 55,000.
+  - "smurfing" = structuring = repeated cash deposits just below the reporting threshold.
+    Use the structuring table (DT_STRUCTURING) which pre-computes this.
+  - "shared identity" or "shared identifiers" across banks = entries in shared_signals
+    where identifier_type IN ('national_id','device','phone').
+  - Consortium banks: BANK_A, BANK_B, BANK_C. A "cross-bank" transaction has
+    counterparty_bank IN ('BANK_A','BANK_B','BANK_C') AND counterparty_bank <> bank_id.
+
+tables:
+  - name: banks
+    base_table: ARGUS.RAW.BANKS
+    primary_key: [bank_id]
+    synonyms: [institution, consortium member, financial institution]
+    comment: Participating GCC banks / NBFCs in the ARGUS consortium
+
+  - name: customers
+    base_table: ARGUS.RAW.CUSTOMERS
+    primary_key: [customer_id]
+    synonyms: [client, account holder]
+    comment: Customers. Only risk rating + hashed identifiers are exposed.
+
+  - name: accounts
+    base_table: ARGUS.RAW.ACCOUNTS
+    primary_key: [account_id]
+    synonyms: [account, IBAN]
+    comment: Deposit / current / wallet accounts
+
+  - name: transactions
+    base_table: ARGUS.RAW.TRANSACTIONS
+    primary_key: [txn_id]
+    synonyms: [payment, transfer, money movement, transaction]
+    comment: >
+      All money movements. A transaction is cross-bank when counterparty_bank is one
+      of BANK_A/BANK_B/BANK_C and differs from the account's bank_id. Column direction
+      is 'credit' (inbound) or 'debit' (outbound). Column channel is 'cash', 'transfer',
+      'card', or 'wallet'. Column counterparty_bank identifies the other bank.
+
+  - name: logins
+    base_table: ARGUS.RAW.DEVICE_LOGINS
+    primary_key: [login_id]
+    synonyms: [session, device login]
+    comment: Login events with hashed device / IP
+
+  - name: hub_accounts
+    base_table: ARGUS.CURATED.DT_HUB_ACCOUNTS
+    primary_key: [account_id]
+    synonyms: [mule hub, consolidation account, fan-in hub, collection point, emerging fraud, cross-bank fraud exposure]
+    comment: >
+      Pre-computed: accounts receiving inbound transfers from 2+ consortium banks
+      in a 7-day burst — candidate mule-ring consolidation hubs. This IS the answer
+      to "emerging cross-bank fraud". Columns: account_id, bank_id, source_banks,
+      inbound_transfers, inbound_amount, burst_start, burst_end.
+
+  - name: structuring
+    base_table: ARGUS.CURATED.DT_STRUCTURING
+    primary_key: [account_id]
+    synonyms: [smurfing, structuring account, near-CTR deposits, cash deposits under threshold, deposits below reporting limit]
+    comment: >
+      Pre-computed: accounts with clusters of cash deposits just below the AED 55,000
+      CTR reporting threshold — structuring / smurfing candidates. Columns: account_id,
+      bank_id, near_threshold_deposits, total_amount, first_deposit, last_deposit.
+
+  - name: shared_signals
+    base_table: ARGUS.GOVERNED.SHARED_BAD_ACTOR_SIGNAL
+    primary_key: [identifier_hash]
+    synonyms: [shared identity, cross-bank signal, bad actor signal, identity fraud signal, shared device, shared national ID]
+    comment: >
+      Privacy-preserving cross-bank signal: hashed identifiers (national_id, device,
+      phone) seen at 2+ banks. No raw PII — hashes only. Filter by identifier_type
+      IN ('national_id','device','phone') for identity sharing queries. Columns:
+      identifier_hash, identifier_type, contributing_bank_count, banks,
+      linked_accounts, risk_weight.
+
+  - name: alerts
+    base_table: ARGUS.GOVERNED.LIVE_ALERTS
+    primary_key: [alert_id]
+    synonyms: [alert, fraud alert, live alert]
+    comment: >
+      Active alerts raised by the pipeline — hub detection, structuring,
+      shared identity. Each alert links to one account.
+
+  - name: evidence
+    base_table: ARGUS.GOVERNED.TYPOLOGY_EVIDENCE
+    primary_key: [entity_id]
+    synonyms: [ring member, typology member, ring evidence, ring membership, funnel account, consolidation account]
+    comment: >
+      Typology membership: maps entities (accounts) to their role within a detected
+      fraud ring. Columns: typology_id, entity_type, entity_id, role, bank_id.
+      Role values: 'source_mule' (feeds money in), 'funnel' (per-bank concentrator),
+      'consolidation' (final collection point). "Funnel accounts" of a ring means
+      role IN ('funnel','consolidation').
+
+relationships:
+  - name: accounts_to_customers
+    table: accounts
+    foreign_key: [customer_id]
+    ref_table: customers
+  - name: accounts_to_banks
+    table: accounts
+    foreign_key: [bank_id]
+    ref_table: banks
+  - name: txn_to_accounts
+    table: transactions
+    foreign_key: [account_id]
+    ref_table: accounts
+  - name: logins_to_accounts
+    table: logins
+    foreign_key: [account_id]
+    ref_table: accounts
+  - name: hub_to_accounts
+    table: hub_accounts
+    foreign_key: [account_id]
+    ref_table: accounts
+  - name: hub_to_banks
+    table: hub_accounts
+    foreign_key: [bank_id]
+    ref_table: banks
+  - name: structuring_to_accounts
+    table: structuring
+    foreign_key: [account_id]
+    ref_table: accounts
+  - name: structuring_to_banks
+    table: structuring
+    foreign_key: [bank_id]
+    ref_table: banks
+  - name: alerts_to_accounts
+    table: alerts
+    foreign_key: [account_id]
+    ref_table: accounts
+  - name: alerts_to_banks
+    table: alerts
+    foreign_key: [bank_id]
+    ref_table: banks
+  - name: evidence_to_accounts
+    table: evidence
+    foreign_key: [entity_id]
+    ref_table: accounts
+    ref_key: [account_id]
+
+# ──────────────────────────────────────────────────────────────────
+# Verified Queries — registered on this semantic view for Cortex Analyst
+# ──────────────────────────────────────────────────────────────────
+
+verified_queries:
+
+  - name: q1_emerging_cross_bank_fraud
+    question: "Show me emerging cross-bank fraud we were exposed to in September 2026."
+    intent: >
+      Accounts receiving funds from 2+ OTHER consortium banks inside a 7-day
+      burst — the consolidation hub of a fan-in/fan-out mule ring.
+    expected: "Surfaces the consolidation accounts of RING-001 and RING-005."
+    use_as_onboarding_question: true
+    sql: |
+      SELECT h.account_id,
+             h.bank_id,
+             h.source_banks,
+             h.inbound_transfers,
+             h.inbound_amount,
+             h.burst_start,
+             h.burst_end
+      FROM ARGUS.CURATED.DT_HUB_ACCOUNTS h
+      ORDER BY h.inbound_amount DESC;
+
+  - name: q2_why_flagged_should_we_file
+    question: "Why was account {account_id} flagged, and should we file?"
+    intent: >
+      Evidence bundle for one account. Every row is a citable piece of evidence:
+      cross-bank inflows/outflows, near-CTR cash deposits, shared identifiers.
+      Zero rows => no basis to file (the guardrail refuses to fabricate a case).
+    expected: "Ring accounts return evidence rows; a clean account returns none."
+    sql: |
+      SELECT 'cross_bank_inflow' AS evidence_type, t.txn_id AS evidence_ref,
+             t.amount, t.counterparty_bank AS detail, t.ts
+      FROM ARGUS.RAW.transactions t
+      WHERE t.account_id = '{account_id}' AND t.direction = 'credit'
+        AND t.counterparty_bank IN ('BANK_A','BANK_B','BANK_C')
+        AND t.counterparty_bank <> t.bank_id
+      UNION ALL
+      SELECT 'cross_bank_outflow', t.txn_id, t.amount, t.counterparty_bank, t.ts
+      FROM ARGUS.RAW.transactions t
+      WHERE t.account_id = '{account_id}' AND t.direction = 'debit'
+        AND t.counterparty_bank IN ('BANK_A','BANK_B','BANK_C')
+        AND t.counterparty_bank <> t.bank_id
+      UNION ALL
+      SELECT 'near_ctr_cash_deposit', t.txn_id, t.amount, t.channel, t.ts
+      FROM ARGUS.RAW.transactions t
+      WHERE t.account_id = '{account_id}' AND t.channel = 'cash'
+        AND t.direction = 'credit' AND t.amount BETWEEN 52000 AND 55000
+      UNION ALL
+      SELECT 'shared_identifier_' || s.identifier_type, s.identifier_hash,
+             NULL, s.contributing_bank_count::STRING || ' banks', NULL
+      FROM ARGUS.GOVERNED.shared_bad_actor_signal s
+      JOIN ARGUS.GOVERNED.bank_identifier_exposure e
+        ON e.identifier_hash = s.identifier_hash
+       AND e.identifier_type = s.identifier_type
+      WHERE e.account_id = '{account_id}'
+        AND s.identifier_type IN ('national_id','device','phone')
+      ORDER BY evidence_type, ts;
+
+  - name: q3_shared_identifiers_across_banks
+    question: "Which accounts share a device or national ID across more than one bank?"
+    intent: >
+      Clean-room signal. Only hashes cross the boundary. national_id sharing is
+      strong; a device shared by different identities alone is weak (may be benign).
+    expected: >
+      RING-002's national_id_hash + device_hash at 3 banks (strong);
+      BENIGN-001 household device at 2 banks (weak, must not be escalated alone).
+    sql: |
+      SELECT identifier_type, identifier_hash, contributing_bank_count, banks,
+             linked_accounts, risk_weight
+      FROM ARGUS.GOVERNED.shared_bad_actor_signal
+      WHERE identifier_type IN ('national_id','device','phone')
+      ORDER BY risk_weight DESC, contributing_bank_count DESC;
+
+  - name: q4_structuring_under_threshold
+    question: "List cash deposits just under the reporting threshold in September 2026."
+    intent: "Structuring / smurfing below the AED 55,000 CTR threshold (CBUAE Art. 15)."
+    expected: "Surfaces the RING-003 account."
+    sql: |
+      SELECT s.account_id, s.bank_id,
+             s.near_threshold_deposits,
+             s.total_amount,
+             s.first_deposit,
+             s.last_deposit
+      FROM ARGUS.CURATED.DT_STRUCTURING s
+      ORDER BY s.near_threshold_deposits DESC;
+
+  - name: q5_typology_obligations_and_control_adequacy
+    question: "Which regulatory obligations does typology {typology_id} touch, and are our controls adequate?"
+    intent: >
+      The correlation loop. Typology -> obligation -> control gap. Uses the
+      regulatory twin (argus_regtwin_sv).
+    expected: >
+      RING-001 (cross-bank mule ring) -> HIGH gaps on OB-03/OB-04/OB-05 (C-12 not deployed).
+      RING-003 (structuring) -> no gap (C-01 active, single-bank scope is sufficient).
+    semantic_view_override: ARGUS.GOVERNED.ARGUS_REGTWIN_SV
+    sql: |
+      SELECT typology_id, obligation_id, obligation_text, regulator, article_ref,
+             is_gap, severity, rationale
+      FROM ARGUS.GOVERNED.typology_exposure
+      WHERE typology_id = '{typology_id}'
+      ORDER BY is_gap DESC, severity;
+
+  - name: q6_value_through_ring_funnels
+    question: "What is the total value moving through the funnel accounts of ring {typology_id}?"
+    intent: >
+      Sum of inbound cross-bank credit transactions through a ring's funnel +
+      consolidation accounts. Ring membership comes from typology_evidence.
+      "Funnel accounts" means role IN ('funnel','consolidation') in evidence table.
+    expected: "Non-zero AED value for RING-001 / RING-005."
+    sql: |
+      SELECT e.typology_id,
+             COUNT(DISTINCT e.entity_id)  AS hub_accounts,
+             SUM(t.amount)                AS value_through_hubs
+      FROM ARGUS.GOVERNED.typology_evidence e
+      JOIN ARGUS.RAW.transactions t
+        ON t.account_id = e.entity_id AND t.direction = 'credit'
+      WHERE e.typology_id = '{typology_id}'
+        AND e.role IN ('funnel','consolidation')
+        AND t.counterparty_bank IN ('BANK_A','BANK_B','BANK_C')
+      GROUP BY e.typology_id;

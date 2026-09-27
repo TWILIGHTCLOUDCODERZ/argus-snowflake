@@ -1,0 +1,14 @@
+I'll plan and execute this multi-step Drive-to-Snowflake ingestion pipeline. Let me start by exploring the existing codebase and finding the MCP tools.Good, I have the full picture of `08_documents.sql`. Now let me find the Drive folder and list its files.Found the folder. Now let me list its contents.All 7 PDFs found (4 circulars + 3 STR filings). Now downloading all files in parallel.All 7 PDFs downloaded. Now let me compute local MD5s and get the stage file listing in parallel.All 7 files have identical MD5s between Drive and stage — all UNCHANGED. No re-upload or re-parse needed. Now let me create the DDL objects and set lineage.Now let me insert the ingest log rows and update the DOCUMENTS lineage columns.Now updating the DOCUMENTS table with drive_file_id and source_uri for all 7 rows.All 7 rows updated with lineage. Let me verify and then write the SQL and evidence files.DOC_INGEST_LOG and DOCUMENTS lineage look correct. The Cortex Search query uses a different calling convention — let me fix that.Cortex Search returns SAMA Art. 8 about mule accounts from multiple institutions. All verifications pass. Now let me clean up the temp downloads and write the two output files.Now cleaning up temp files and writing the evidence document.All done. Here's the summary:
+
+**Results:**
+- **7 files** found in the `ARGUS Policy Corpus` Drive folder (4 circulars, 3 STR filings)
+- **7/7 UNCHANGED** — every Drive file's MD5 matched its stage counterpart exactly, so no re-uploads or re-parses were needed
+- **`DOC_INGEST_LOG`** created with 7 rows logging the sync
+- **`DOCUMENTS`** table augmented with `drive_file_id` and `source_uri` columns — all 7 rows populated with Drive lineage (`gdrive://ARGUS Policy Corpus/<file>`)
+- **Cortex Search** verified: query "mule accounts fed from multiple institutions" with regulator=SAMA returns SAMA Art. 8 as expected
+
+**Files created:**
+- `sql/09_drive_ingestion.sql` — reusable DDL, lineage update templates, and re-parse templates for future syncs
+- `evidence/coco_s7_drive_ingestion.md` — file list, verification results, and "How a new circular flows in" walkthrough
+
+If you want this Drive sync to run on a recurring schedule, it could be set up as a `cortex automation`.

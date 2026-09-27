@@ -1,0 +1,388 @@
+{
+  "typologies": [
+    {
+      "typology_id": "RING-001",
+      "name": "Cross-bank fan-in/fan-out mule ring",
+      "structure": "9 source mules -> 3 per-bank funnels -> 1 consolidation account, 6-day burst",
+      "banks_involved": [
+        "BANK_A",
+        "BANK_B",
+        "BANK_C"
+      ],
+      "burst_start_day": 14,
+      "members": [
+        {
+          "entity_type": "account",
+          "entity_id": "A0000094",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000076",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000036",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000379",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000391",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000352",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000601",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000625",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000560",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000366",
+          "role": "funnel",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000535",
+          "role": "funnel",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000095",
+          "role": "consolidation",
+          "bank_id": "BANK_A"
+        }
+      ]
+    },
+    {
+      "typology_id": "RING-002",
+      "name": "Shared-identity / synthetic-identity ring",
+      "structure": "one national_id_hash + one device_hash reused to open accounts at 3 banks",
+      "banks_involved": [
+        "BANK_A",
+        "BANK_B",
+        "BANK_C"
+      ],
+      "shared_national_id_hash": "7970862ea9073fd80960309b",
+      "shared_device_hash": "09a2afcc4d416c1e140e41fc",
+      "members": [
+        {
+          "entity_type": "customer",
+          "entity_id": "C000018",
+          "role": "shared_identity",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000019",
+          "role": "shared_identity_account",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "customer",
+          "entity_id": "C000223",
+          "role": "shared_identity",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000263",
+          "role": "shared_identity_account",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "customer",
+          "entity_id": "C000472",
+          "role": "shared_identity",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000554",
+          "role": "shared_identity_account",
+          "bank_id": "BANK_C"
+        }
+      ]
+    },
+    {
+      "typology_id": "RING-003",
+      "name": "Cash structuring below reporting threshold",
+      "structure": "10 cash deposits of ~53500 AED over a few days (CTR threshold 55000)",
+      "banks_involved": [
+        "BANK_B"
+      ],
+      "members": [
+        {
+          "entity_type": "account",
+          "entity_id": "A0000343",
+          "role": "structuring",
+          "bank_id": "BANK_B"
+        }
+      ]
+    },
+    {
+      "typology_id": "RING-004",
+      "name": "Circular cross-bank layering loop",
+      "structure": "A -> B -> C -> A, ~equal value returning to origin within days",
+      "banks_involved": [
+        "BANK_A",
+        "BANK_B",
+        "BANK_C"
+      ],
+      "members": [
+        {
+          "entity_type": "account",
+          "entity_id": "A0000005",
+          "role": "layering_hop",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000400",
+          "role": "layering_hop",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000552",
+          "role": "layering_hop",
+          "bank_id": "BANK_C"
+        }
+      ]
+    },
+    {
+      "typology_id": "RING-005",
+      "name": "Cross-bank fan-in/fan-out mule ring",
+      "structure": "9 source mules -> 3 per-bank funnels -> 1 consolidation account, 6-day burst",
+      "banks_involved": [
+        "BANK_A",
+        "BANK_B",
+        "BANK_C"
+      ],
+      "burst_start_day": 11,
+      "members": [
+        {
+          "entity_type": "account",
+          "entity_id": "A0000184",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000054",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000210",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000362",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000358",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000275",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000471",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000433",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000430",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000235",
+          "role": "funnel",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000541",
+          "role": "funnel",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000046",
+          "role": "consolidation",
+          "bank_id": "BANK_A"
+        }
+      ]
+    }
+  ],
+  "benign_controls": [
+    {
+      "control_id": "BENIGN-001",
+      "name": "Household shared device (benign)",
+      "structure": "2 different identities at 2 banks share one device; normal flows only",
+      "expected": "do_not_escalate",
+      "shared_device_hash": "7678154c3662b06669b29f12",
+      "members": [
+        {
+          "entity_type": "account",
+          "entity_id": "A0000004",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000275",
+          "bank_id": "BANK_B"
+        }
+      ]
+    }
+  ],
+  "live_typologies": [
+    {
+      "typology_id": "RING-006",
+      "name": "Cross-bank fan-in/fan-out mule ring (live forming)",
+      "structure": "9 source mules -> 3 per-bank funnels -> 1 consolidation (BANK_B), forming over batches 3-10",
+      "banks_involved": [
+        "BANK_A",
+        "BANK_B",
+        "BANK_C"
+      ],
+      "forms_over_batches": [
+        3,
+        10
+      ],
+      "members": [
+        {
+          "entity_type": "account",
+          "entity_id": "A0000013",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000204",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000077",
+          "role": "source_mule",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000024",
+          "role": "funnel",
+          "bank_id": "BANK_A"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000342",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000234",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000406",
+          "role": "source_mule",
+          "bank_id": "BANK_B"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000588",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000593",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000504",
+          "role": "source_mule",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000610",
+          "role": "funnel",
+          "bank_id": "BANK_C"
+        },
+        {
+          "entity_type": "account",
+          "entity_id": "A0000284",
+          "role": "consolidation",
+          "bank_id": "BANK_B"
+        }
+      ]
+    }
+  ],
+  "meta": {
+    "seed": 4471,
+    "currency": "AED",
+    "ctr_threshold": 55000,
+    "base_date": "2026-09-01",
+    "window_days": 30
+  }
+}

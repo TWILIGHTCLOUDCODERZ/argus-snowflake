@@ -1,0 +1,31 @@
+I'll start by reading the existing SQL files and reference data to understand the schema and detection logic.I've read all the reference files. Now I understand the schema, detection logic (Q1 cross-bank hub, Q4 structuring), RING-006 ground truth (consolidation at A0000284@BANK_B, forming batches 3-10), and the live feed structure. Let me set up the task list and start building.Uploading live_feed.csv to the stage.Now writing the complete pipeline SQL file.Now executing the SQL statements one by one. Starting with the queue table and COPY.202 rows loaded. Now creating the stream and procedures.Now creating the task graph and dynamic tables.The child task failed because the root wasn't created yet when I tried resuming it first. Let me create the child now and then resume it.Snowflake requires task graph members in the same schema. I'll place the child task in RAW alongside the root (it still calls the GOVERNED procedure).Now creating the three dynamic tables.Now creating the reset procedure.Now let me update the SQL file to reflect the schema change for the child task, then move to verification.All objects created. Now delivering all 12 batches and verifying. Starting with batch 1.Both tasks succeeded for batch 1. Now I'll deliver the remaining 11 batches in a loop. Let me execute all of them.All 24 runs (12 feed + 12 alert) SUCCEEDED. Now let me verify the results: check queue is fully delivered, check alerts, and refresh dynamic tables.Exactly one alert: CROSS_BANK_HUB for A0000284 (BANK_B) — RING-006's consolidation account. No false positives. Alert triggered after batch 10 (raised_at 00:51:35, batch 10 delivered at 00:51:32). Now refreshing dynamic tables and checking.DTs already have the latest data. Let me query them.All verification checks pass:
+
+- **DT_HUB_ACCOUNTS**: 3 rows — A0000095 (RING-001 consolidation), A0000046 (RING-005 consolidation), and **A0000284 (RING-006 consolidation, live)**
+- **DT_STRUCTURING**: 1 row — A0000343 (RING-003, historical)
+- **DT_CROSS_BANK_EDGES**: 9 inter-bank edges
+- **LIVE_ALERTS**: Only 1 alert, CROSS_BANK_HUB for A0000284 — no false positives
+
+The RING-006 alert triggered after **batch 10** (the batch that delivered the BANK_A→BANK_B cross-bank credit, completing the 2-bank threshold).
+
+Now running the reset procedure and verifying cleanup.All cleanup confirmed:
+- 0 live rows in TRANSACTIONS
+- 0 alerts in LIVE_ALERTS
+- 202 queue rows back to undelivered
+- TASK_FEED_LIVE is **suspended**, TASK_RAISE_ALERTS is **started** (as required)All done. Here's the summary:
+
+**Pipeline built and verified** — 11 objects created in `sql/06_pipelines.sql`:
+
+- **Ingestion**: `TXN_LIVE_QUEUE` (202 rows from live_feed.csv) + `SP_DELIVER_NEXT_BATCH()` procedure
+- **Stream**: `TRANSACTIONS_STREAM` (append-only on TRANSACTIONS)
+- **Task graph** (serverless): `TASK_FEED_LIVE` (root, SUSPENDED) → `TASK_RAISE_ALERTS` (child, when stream has data)
+- **Alert engine**: `SP_RAISE_ALERTS()` evaluates Q1 (cross-bank hub) + Q4 (structuring) per batch; `LIVE_ALERTS` table stores results
+- **Dynamic tables**: `DT_CROSS_BANK_EDGES`, `DT_HUB_ACCOUNTS`, `DT_STRUCTURING` (1-min lag, deterministic SQL)
+- **Reset**: `SP_RESET_LIVE_DEMO()` cleans up for replay
+
+**Verification results**:
+- All 12 batches delivered; both tasks SUCCEEDED every run
+- **RING-006 alert raised after batch 10** — A0000284 (BANK_B consolidation) flagged as CROSS_BANK_HUB with 2 source banks and 146,886.68 AED. Zero false positives.
+- DT_HUB_ACCOUNTS shows 3 hubs: A0000095 (RING-001), A0000046 (RING-005), and A0000284 (RING-006 live)
+- Reset procedure confirmed: live rows removed, queue undelivered, alerts cleared, root task suspended
+
+One deviation: child task placed in `RAW` (not `GOVERNED`) because Snowflake requires task graph members in the same schema.

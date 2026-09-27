@@ -1,0 +1,163 @@
+# ARGUS Ontology — Risk & Regulatory Intelligence Copilot
+# Created by TCC · Snowflake CoCo Hack (GCC Edition)
+#
+# This is the shared spine that lets the fraud side and the regulatory side
+# correlate. Both halves are just two entry points into the same graph:
+#
+#   regulation-clause -> obligation -> control -> data/semantic-view
+#     -> transaction -> entity -> typology -> finding -> filing
+#
+# In Week 2 CoCo infers Snowflake SEMANTIC VIEWS + VERIFIED QUERIES from these
+# entities. Keep entity/attribute names identical to the CSV/DDL columns.
+
+version: 0.1.0
+currency: AED
+reporting_threshold_ctr: 55000        # cash transaction reporting threshold (demo)
+
+# ---------------------------------------------------------------------------
+# 1. STRUCTURED ENTITIES (per synthetic bank: BANK_A, BANK_B, BANK_C)
+# ---------------------------------------------------------------------------
+entities:
+
+  bank:
+    description: A participating financial institution in the consortium.
+    primary_key: bank_id
+    attributes: [bank_id, bank_name, country, regulator]
+
+  customer:
+    description: A retail/NBFC customer. Raw PII stays private to the bank.
+    primary_key: customer_id
+    attributes:
+      - customer_id
+      - bank_id
+      - full_name
+      - national_id            # PRIVATE - never leaves the bank
+      - national_id_hash       # SHARED via clean room (salted sha256)
+      - phone                  # PRIVATE
+      - phone_hash             # SHARED via clean room
+      - email
+      - nationality
+      - dob
+      - kyc_risk_rating        # low | medium | high
+      - onboarded_at
+    relationships:
+      - {name: belongs_to, target: bank, via: bank_id}
+
+  account:
+    description: A deposit/current account held by a customer.
+    primary_key: account_id
+    attributes:
+      - account_id
+      - bank_id
+      - customer_id
+      - iban                   # SHARED join key across banks
+      - account_type           # current | savings | wallet
+      - currency
+      - status                 # active | dormant | frozen
+      - opened_at
+    relationships:
+      - {name: owned_by, target: customer, via: customer_id}
+      - {name: at, target: bank, via: bank_id}
+
+  device_login:
+    description: A login/session event; device_hash is a cross-bank join key.
+    primary_key: login_id
+    attributes:
+      - login_id
+      - bank_id
+      - account_id
+      - device_hash            # SHARED - shared devices reveal rings
+      - ip_hash                # SHARED
+      - ts
+    relationships:
+      - {name: from_account, target: account, via: account_id}
+
+  transaction:
+    description: A single money movement. Cross-bank when counterparty_bank differs.
+    primary_key: txn_id
+    attributes:
+      - txn_id
+      - bank_id
+      - account_id
+      - direction              # credit | debit
+      - amount
+      - currency
+      - channel                # cash | transfer | card | wallet
+      - counterparty_iban      # SHARED join key
+      - counterparty_bank      # BANK_A/B/C/EXTERNAL
+      - purpose_code           # salary | retail | remittance | p2p | other
+      - ts
+    relationships:
+      - {name: on_account, target: account, via: account_id}
+
+# ---------------------------------------------------------------------------
+# 2. CLEAN-ROOM SHARED SIGNAL (privacy-preserving; NO raw PII crosses)
+# ---------------------------------------------------------------------------
+clean_room:
+  shared_bad_actor_signal:
+    description: >
+      The only object exchanged between banks. Built from hashed identifiers
+      inside a Snowflake Data Clean Room. Reveals that an identifier is seen at
+      multiple banks WITHOUT exposing whose it is.
+    attributes:
+      - identifier_hash        # national_id_hash | phone_hash | device_hash | iban
+      - identifier_type
+      - contributing_bank_count
+      - risk_weight
+  shared_join_keys: [national_id_hash, phone_hash, device_hash, iban, counterparty_iban]
+
+# ---------------------------------------------------------------------------
+# 3. REGULATORY DIGITAL TWIN
+# ---------------------------------------------------------------------------
+regulatory_twin:
+  regulation:
+    primary_key: regulation_id
+    attributes: [regulation_id, regulator, title, effective_date, source_uri]
+  clause:
+    primary_key: clause_id
+    attributes: [clause_id, regulation_id, article_ref, text]
+  obligation:
+    primary_key: obligation_id
+    attributes: [obligation_id, clause_id, obligation_text, category]  # AML|Basel|local
+  control:
+    primary_key: control_id
+    attributes: [control_id, name, description, coverage_scope, owner]  # single_bank|cross_bank
+  control_data_lineage:
+    description: Which semantic view / table evidences a control.
+    attributes: [control_id, data_object, semantic_view]
+  control_gap:
+    description: Computed by the Twin agent when a typology/obligation is uncovered.
+    attributes: [gap_id, control_id, obligation_id, typology_id, severity, rationale]
+
+# ---------------------------------------------------------------------------
+# 4. CORRELATION + OUTPUT (the closed loop)
+# ---------------------------------------------------------------------------
+correlation:
+  typology:
+    description: A named, explainable fraud pattern (discovered or known).
+    primary_key: typology_id
+    attributes: [typology_id, name, description, structure, first_seen, banks_involved]
+  typology_evidence:
+    attributes: [typology_id, entity_type, entity_id, role]
+  finding:
+    primary_key: finding_id
+    attributes: [finding_id, typology_id, confidence, status, created_at]
+  finding_claim:
+    description: Atomic claim; MUST link to >=1 structured row AND >=1 clause.
+    attributes: [claim_id, finding_id, claim_text, structured_ref, clause_ref, confidence]
+  filing:
+    primary_key: filing_id
+    attributes: [filing_id, finding_id, filing_type, destination, rendered_uri, status]
+    # filing_type: STR | control_gap_memo | board_memo
+    # destination: gmail | google_docs | slack | jira
+
+# ---------------------------------------------------------------------------
+# 5. VALIDATION QUESTIONS (Week 2: validate semantic views against these NL Qs)
+# ---------------------------------------------------------------------------
+validation_questions:
+  - "Show me emerging cross-bank fraud we were exposed to in September 2026."
+  - "Why was account {account_id} flagged, and should we file?"
+  - "Which accounts share a device or national ID across more than one bank?"
+  - "List cash deposits just under the reporting threshold in September 2026."
+  - "Which regulatory obligations does this typology touch, and are our controls adequate?"
+  - "What is the total value moving through the funnel accounts of this ring?"

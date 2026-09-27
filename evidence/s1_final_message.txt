@@ -1,0 +1,9 @@
+I'll explore the ARGUS database, validate the ontology, and produce a planning review. Let me start by gathering data in parallel.Good, I have the structure. Now let me run profiling queries and DESCRIBE all tables in parallel.Good data coming in. Now let me DESCRIBE all tables and get remaining profiling details.Now let me get remaining profiling data and check the shared_bad_actor_signal view.Let me get a few more details to complete the picture.Let me check the existing SQL files to understand what's been built already.Now I have all the data needed. Let me write the planning review document.Planning review complete. Written to `evidence/coco_planning_review.md`.
+
+**Key findings:**
+
+- **Data is solid:** 8,747 transactions across 3 banks, full September 2026, balanced distribution, near-zero nulls. Two semantic views already exist.
+- **Ontology matches well for RAW/regulatory tables** — all 5 RAW entities are exact column matches. Minor drift: `obligation.required_scope` and `control.status` exist in Snowflake but not in the YAML.
+- **Critical gaps:** The TYPOLOGY master table, FINDING, FINDING_CLAIM, and FILING tables don't exist yet. TYPOLOGY_EVIDENCE is empty. These 4 missing tables block the entire evidence→finding→filing workflow — the demo's core narrative.
+- **Cross-bank signal is deliberately sparse:** 14 cross-bank txns, 1 shared national_id across all 3 banks, 2 shared devices. The shared_bad_actor_signal view surfaces 8 multi-bank signals. Control C-12 (cross-institution monitoring) exists but is `not_deployed`, leaving 3 HIGH-severity control gaps.
+- **Next step:** Create the missing schema objects (TYPOLOGY, FINDING, FINDING_CLAIM, FILING), populate TYPOLOGY_EVIDENCE, then validate the semantic views against the ontology's NL questions.

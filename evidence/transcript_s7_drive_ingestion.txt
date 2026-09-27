@@ -1,0 +1,198 @@
+┌─ USER [13:58] ───────────────────────────────────────────────────────────────┐
+│ # CoCo session S7 — GOOGLE DRIVE → SNOWFLAKE document ingestion (via MCP)
+│ 
+│ Project: **ARGUS** (team TCC). The document pipeline from session S5 (`sql/08_documents.sql`)
+│ parses PDFs from `@ARGUS.GOVERNED.DOCS_STAGE` (`circulars/`, `filings/`) into
+│ `ARGUS.GOVERNED.DOCUMENTS` → `DOCUMENT_CHUNKS` → Cortex Search `POLICY_SEARCH`, and extracts
+│ obligations. Those PDFs were uploaded from local files. In production, circulars and filings
+│ arrive in a Google Drive folder. Make **Google Drive the source**, using the
+│ `google-workspace` MCP server (read-only Drive access for deepanreyvampire@gmail.com).
+│ 
+│ ## Steps
+│ 1. With the google-workspace MCP tools, find the Drive folder **`ARGUS Policy Corpus`** and
+│    list its files (expect 7 PDFs: 4 circulars, 3 STR filings named `STR-*`).
+│ 2. Download each file with `get_drive_file_download_url` (in stdio mode it saves the file
+│    locally and returns the path).
+│ 3. **Ingestion log**: create `ARGUS.GOVERNED.DOC_INGEST_LOG` (drive_file_id, file_name,
+│    doc_type 'circular'|'filing', drive_modified_time, md5, stage_path, action, ingested_at)
+│    and add nullable columns `drive_file_id` and `source_uri` to `ARGUS.GOVERNED.DOCUMENTS`
+│    (ALTER TABLE ... ADD COLUMN IF NOT EXISTS).
+│ 4. **Change detection**: compute each downloaded file's MD5 and compare with the MD5 of the
+│    file already on the stage (`LIST @ARGUS.GOVERNED.DOCS_STAGE`), matching by file name.
+│    - Identical → log action `UNCHANGED`, do not re-upload or re-parse.
+│    - Different or new → upload to the right stage folder (bash, one file per command:
+│      `.venv/Scripts/snow stage copy "<local path>" @ARGUS.GOVERNED.DOCS_STAGE/circulars/ -c argus --overwrite`),
+│      `ALTER STAGE ... REFRESH`, re-parse just that file into DOCUMENTS/DOCUMENT_CHUNKS with the
+│      same logic as `sql/08_documents.sql`, log `INGESTED` or `UPDATED`.
+│ 5. **Lineage**: for every document, set `DOCUMENTS.drive_file_id` and
+│    `source_uri = 'gdrive://ARGUS Policy Corpus/<file name>'` (and the Drive file ID) so every
+│    parsed document and search result can be traced to its Drive original.
+│ 6. Write the reusable SQL (table DDL, ALTERs, lineage updates, re-parse template) to
+│    `sql/09_drive_ingestion.sql`.
+│ 
+│ ## Verify
+│ - `DOC_INGEST_LOG` has one row per Drive file (7) with actions; state how many were
+│   unchanged vs ingested.
+│ - All 7 `DOCUMENTS` rows have a `drive_file_id`.
+│ - Cortex Search still answers: "mule accounts fed from multiple institutions" filtered
+│   regulator = SAMA → SAMA Art. 8.
+│ 
+│ Write the file list (name, Drive ID, MD5, action), verification results and a
+│ "How a new circular flows in" section to `evidence/coco_s7_drive_ingestion.md`.
+│ 
+│ Rules: Drive is read-only — never create, modify, share or delete Drive files. Do not drop
+│ or recreate existing Snowflake objects. Only create `sql/09_drive_ingestion.sql` and
+│ `evidence/coco_s7_drive_ingestion.md`; delete the downloaded temp copies when done.
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ I'll plan and execute this multi-step Drive-to-Snowflake ingestion pipeline. Let me start by exploring the existing codebase and finding the MCP tools.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   tool_search (success)
+│   drive|google|mcp
+│ 
+│   glob (success)
+│   **/*.sql
+│ 
+│   glob (success)
+│   evidence/*
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\sql\08_documents.sql
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Good, I have the full picture of `08_documents.sql`. Now let me find the Drive folder and list its files.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   mcp__google-workspace__search_drive_files (success)
+│   name = 'ARGUS Policy Corpus' and mimeType = 'application/vnd.google-app…
+│ Found the folder. Now let me list its contents.
+│ 
+│   mcp__google-workspace__list_drive_items (success)
+│   13S2sX6Puv5T24uCBIQ-SoKELLIb-Jaqg
+│ All 7 PDFs found (4 circulars + 3 STR filings). Now downloading all files in parallel.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1ikHeKOEDW33B2pKxuRkio-iWKzxmlZtg
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1rpIyg9wMDnhhP0lAdSIfyjml0m2FnXgn
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1Ematx7AubEK8IXfFHL7LQ1KZIOFz6k3p
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1jH6uyp54nqKOIDhBclQbE3NX5n0DHq_B
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1asAgwHwex7u7V-46HW3A04KhTh7YQZUr
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1wOgtcd_OiEOYzJ4O54hceI8f_VvfDyKM
+│ 
+│   mcp__google-workspace__get_drive_file_download_url (success)
+│   1NLOg_l0XcyClGSGYIesm2zOQFdiapPEq
+│ All 7 PDFs downloaded. Now let me compute local MD5s and get the stage file listing in parallel.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   python_repl (success)
+│   Compute MD5 hashes for all downloaded PDFs
+│ 
+│   sql_execute (success)
+│   List files on the Snowflake stage for MD5 comparison
+│ All 7 files have identical MD5s between Drive and stage — all UNCHANGED. No re-upload or re-parse needed. Now let me create the DDL objects and set lineage.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   sql_execute (success)
+│   Add drive_file_id and source_uri columns to DOCUMENTS
+│ 
+│   sql_execute (success)
+│   Create DOC_INGEST_LOG table
+│ 
+│   sql_execute (success)
+│   Add source_uri column to DOCUMENTS
+│ Now let me insert the ingest log rows and update the DOCUMENTS lineage columns.
+│ 
+│   sql_execute (success)
+│   Insert 7 UNCHANGED rows into DOC_INGEST_LOG
+│ Now updating the DOCUMENTS table with drive_file_id and source_uri for all 7 rows.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   sql_execute (success)
+│   Check current DOCUMENTS rows to match relative_path
+│ 
+│   sql_execute (success)
+│   Set drive_file_id and source_uri on all DOCUMENTS rows via join to inge…
+│ All 7 rows updated with lineage. Let me verify and then write the SQL and evidence files.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   sql_execute (success)
+│   Verify DOC_INGEST_LOG has 7 rows with actions
+│ 
+│   sql_execute (error)
+│   Cortex Search: mule accounts from multiple institutions, SAMA filter
+│ 
+│   sql_execute (success)
+│   Verify all DOCUMENTS rows have drive_file_id populated
+│ DOC_INGEST_LOG and DOCUMENTS lineage look correct. The Cortex Search query uses a different calling convention — let me fix that.
+│ 
+│   bash (error)
+│   $ cd "D:\hackathon\Snowflake hackathon" ; .venv/Scripts/cortex search d…
+│ 
+│   sql_execute (error)
+│   Query Cortex Search with SEARCH function syntax
+│ 
+│   sql_execute (success)
+│   Query Cortex Search service directly
+│ Cortex Search returns SAMA Art. 8 about mule accounts from multiple institutions. All verifications pass. Now let me clean up the temp downloads and write the two output files.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   write (success)
+│   D:\hackathon\Snowflake hackathon\sql\09_drive_ingestion.sql
+│ Now cleaning up temp files and writing the evidence document.
+│ 
+│   bash (success)
+│   $ Remove-Item "C:\Users\ACER\.workspace-mcp\attachments\CBB_FC_MODULE_2…
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+│ 
+│   write (success)
+│   D:\hackathon\Snowflake hackathon\evidence\coco_s7_drive_ingestion.md
+│ All done. Here's the summary:
+│ 
+│ **Results:**
+│ - **7 files** found in the `ARGUS Policy Corpus` Drive folder (4 circulars, 3 STR filings)
+│ - **7/7 UNCHANGED** — every Drive file's MD5 matched its stage counterpart exactly, so no re-uploads or re-parses were needed
+│ - **`DOC_INGEST_LOG`** created with 7 rows logging the sync
+│ - **`DOCUMENTS`** table augmented with `drive_file_id` and `source_uri` columns — all 7 rows populated with Drive lineage (`gdrive://ARGUS Policy Corpus/<file>`)
+│ - **Cortex Search** verified: query "mule accounts fed from multiple institutions" with regulator=SAMA returns SAMA Art. 8 as expected
+│ 
+│ **Files created:**
+│ - `sql/09_drive_ingestion.sql` — reusable DDL, lineage update templates, and re-parse templates for future syncs
+│ - `evidence/coco_s7_drive_ingestion.md` — file list, verification results, and "How a new circular flows in" walkthrough
+│ 
+│ If you want this Drive sync to run on a recurring schedule, it could be set up as a `cortex automation`.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore existing sql/08_documents.sql and project…
+└──────────────────────────────────────────────────────────────────────────────┘

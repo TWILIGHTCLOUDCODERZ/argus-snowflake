@@ -1,0 +1,88 @@
+# ARGUS · Regulatory Twin Semantic View Definition + Verified Queries
+# Created by TCC · Snowflake CoCo Hack (GCC Edition) · Session S6/S6b
+#
+# Extended from the Week 2 base to include TYPOLOGY_EXPOSURE
+# (typology -> obligation -> gap mapping with severity and rationale).
+
+semantic_view: ARGUS.GOVERNED.ARGUS_REGTWIN_SV
+
+custom_instructions: >
+  Terminology mapping:
+  - "controls adequate" or "are our controls adequate" = check the is_gap column
+    in typology_exposure. is_gap=TRUE means controls are NOT adequate (there is a gap).
+    is_gap=FALSE means controls are adequate.
+  - "regulatory obligations" a typology "touches" = rows in typology_exposure for that
+    typology_id. Each row maps a typology to an obligation with gap analysis.
+  - "regulatory exposure" = same as obligations with gaps (is_gap=TRUE).
+  - severity column values: 'HIGH', 'MEDIUM', 'NONE'. HIGH means cross-bank coverage
+    is required but no active control provides it.
+  - When filtering by typology, use typology_id (e.g., 'RING-001').
+
+tables:
+  - name: regulations
+    base_table: ARGUS.GOVERNED.REGULATION
+    primary_key: [regulation_id]
+    synonyms: [circular, rulebook, regulation]
+
+  - name: clauses
+    base_table: ARGUS.GOVERNED.CLAUSE
+    primary_key: [clause_id]
+    synonyms: [article, section]
+
+  - name: obligations
+    base_table: ARGUS.GOVERNED.OBLIGATION
+    primary_key: [obligation_id]
+    synonyms: [requirement, duty, regulatory requirement]
+
+  - name: gaps
+    base_table: ARGUS.GOVERNED.CONTROL_GAP
+    primary_key: [obligation_id]
+    synonyms: [control gap, coverage gap]
+
+  - name: typology_exposure
+    base_table: ARGUS.GOVERNED.TYPOLOGY_EXPOSURE
+    primary_key: [typology_id, obligation_id]
+    synonyms: [typology gap, typology obligation, ring exposure, regulatory exposure, control adequacy]
+    comment: >
+      Pre-computed typology-to-obligation mapping with gap analysis: shows which
+      regulatory obligations each typology touches and whether controls are adequate.
+      Columns: typology_id, obligation_id, obligation_text, regulator, article_ref,
+      is_gap (TRUE=gap exists), severity (HIGH/MEDIUM/NONE), rationale.
+
+relationships:
+  - name: clause_to_reg
+    table: clauses
+    foreign_key: [regulation_id]
+    ref_table: regulations
+  - name: obligation_to_cl
+    table: obligations
+    foreign_key: [clause_id]
+    ref_table: clauses
+  - name: gap_to_obligation
+    table: gaps
+    foreign_key: [obligation_id]
+    ref_table: obligations
+  - name: exposure_to_obligation
+    table: typology_exposure
+    foreign_key: [obligation_id]
+    ref_table: obligations
+
+# ──────────────────────────────────────────────────────────────────
+# Verified Queries — registered on this semantic view for Cortex Analyst
+# ──────────────────────────────────────────────────────────────────
+
+verified_queries:
+
+  - name: q5_typology_obligations_and_control_adequacy
+    question: "Which regulatory obligations does typology {typology_id} touch, and are our controls adequate?"
+    intent: >
+      The correlation loop. Typology -> obligation -> control gap.
+    expected: >
+      RING-001 (cross-bank mule ring) -> HIGH gaps on OB-03/OB-04/OB-05 (C-12 not deployed).
+      RING-003 (structuring) -> no gap (C-01 active, single-bank scope is sufficient).
+    sql: |
+      SELECT typology_id, obligation_id, obligation_text, regulator, article_ref,
+             is_gap, severity, rationale
+      FROM ARGUS.GOVERNED.typology_exposure
+      WHERE typology_id = '{typology_id}'
+      ORDER BY is_gap DESC, severity;

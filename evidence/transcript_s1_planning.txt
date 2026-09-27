@@ -1,0 +1,203 @@
+┌─ USER [13:05] ───────────────────────────────────────────────────────────────┐
+│ # CoCo session S1 — PLANNING: explore the data, validate the ontology, frame the workflow
+│ 
+│ You are working on **ARGUS**, a Risk & Regulatory Intelligence Copilot for GCC banks
+│ (team TCC, Snowflake CoCo Hack — GCC Edition). The Snowflake database `ARGUS` already
+│ holds synthetic data for three banks (schemas RAW, CURATED, GOVERNED). Project files are
+│ in the working directory: `ontology/argus_ontology.yaml`, `BUILD_PLAN.md`, `sql/*.sql`,
+│ `data/ground_truth/planted_rings.json`.
+│ 
+│ This is a **planning / exploration** session. Do the following:
+│ 
+│ 1. **Explore the warehouse.** List every table, view and semantic view in `ARGUS`.
+│    Profile the RAW tables with real queries: row counts, transaction date range,
+│    rows per bank, channel and purpose_code mix, null rates of key columns, number of
+│    cross-bank transactions (counterparty_bank is a consortium bank different from
+│    bank_id), and the KYC risk-rating mix.
+│ 2. **Validate the ontology against the real schema.** Read `ontology/argus_ontology.yaml`
+│    and compare each entity and attribute with the actual columns (`DESCRIBE TABLE`).
+│    Report mismatches, attributes in the ontology that don't exist yet, and objects the
+│    ontology describes that are not built yet (e.g. finding, finding_claim, filing).
+│ 3. **Frame the workflow** signal → evidence → finding → filing, and map each step to
+│    the Snowflake objects that implement it today (or note that it's missing).
+│ 4. Write your results to **`evidence/coco_planning_review.md`** with sections:
+│    *Data profile* (the actual numbers you queried), *Ontology ↔ schema check* (a table),
+│    *Gaps & risks*, *Workflow outline*, *Recommended next build steps*.
+│ 
+│ Rules:
+│ - **Read-only in Snowflake**: only SELECT / SHOW / DESCRIBE. Do not create, alter, drop,
+│   insert, update or delete anything.
+│ - Do not modify any existing file. The only file you may create is
+│   `evidence/coco_planning_review.md`.
+│ - Do not read `data/ground_truth/` contents into the review as "findings" — it is the
+│   answer key for testing, not something the system detects.
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ I'll explore the ARGUS database, validate the ontology, and produce a planning review. Let me start by gathering data in parallel.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore ARGUS warehouse: list all tables, views, …
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\BUILD_PLAN.md
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\ontology\argus_ontology.yaml
+│ 
+│   sql_execute (success)
+│   List all tables in ARGUS database
+│ 
+│   sql_execute (success)
+│   List all schemas in ARGUS database
+│ 
+│   sql_execute (success)
+│   List all views in ARGUS database
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Good, I have the structure. Now let me run profiling queries and DESCRIBE all tables in parallel.
+│ 
+│   sql_execute (success)
+│   Profile RAW.TRANSACTIONS - row count, date range, per-bank counts
+│ 
+│   sql_execute (success)
+│   KYC risk rating distribution
+│ 
+│   sql_execute (success)
+│   Transactions per bank
+│ 
+│   sql_execute (success)
+│   Channel and purpose_code distribution
+│ 
+│   sql_execute (success)
+│   Purpose code distribution
+│ 
+│   sql_execute (success)
+│   Cross-bank transactions count
+│ 
+│   sql_execute (success)
+│   Check for semantic views in ARGUS
+│ 
+│   sql_execute (success)
+│   Null rates for key columns in TRANSACTIONS
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Good data coming in. Now let me DESCRIBE all tables and get remaining profiling details.
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.REGULATION
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.CONTROL
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.CONTROL_DATA_LINEAGE
+│ 
+│   sql_execute (success)
+│   DESCRIBE RAW.CUSTOMERS
+│ 
+│   sql_execute (success)
+│   DESCRIBE RAW.TRANSACTIONS
+│ 
+│   sql_execute (success)
+│   DESCRIBE RAW.ACCOUNTS
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.CONTROL_OBLIGATION
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.TYPOLOGY_OBLIGATION
+│ 
+│   sql_execute (success)
+│   DESCRIBE all RAW tables
+│ 
+│   sql_execute (success)
+│   DESCRIBE RAW.DEVICE_LOGINS
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.TYPOLOGY_EVIDENCE
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.OBLIGATION
+│ 
+│   sql_execute (success)
+│   DESCRIBE GOVERNED.CLAUSE
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Now let me get remaining profiling data and check the shared_bad_actor_signal view.
+│ 
+│   sql_execute (success)
+│   Structuring candidates count
+│ 
+│   sql_execute (success)
+│   Counterparty bank distribution
+│ 
+│   sql_execute (success)
+│   Shared bad actor signal stats
+│ 
+│   sql_execute (success)
+│   Null rates in CUSTOMERS
+│ 
+│   sql_execute (success)
+│   Accounts per bank and type
+│ 
+│   sql_execute (success)
+│   Device logins per bank, shared device count
+│ 
+│   sql_execute (success)
+│   Customers per bank
+│ 
+│   sql_execute (success)
+│   Control gap view results
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Let me get a few more details to complete the picture.
+│ 
+│   sql_execute (success)
+│   Regulation table contents
+│ 
+│   sql_execute (success)
+│   Check existing SQL files
+│ 
+│   sql_execute (success)
+│   Direction split in transactions
+│ 
+│   sql_execute (success)
+│   Shared bad actor signal breakdown by type
+│ 
+│   sql_execute (success)
+│   Typology obligation contents
+│ 
+│   sql_execute (success)
+│   Cross-bank national_id customers
+│ Let me check the existing SQL files to understand what's been built already.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore ARGUS warehouse: list all tables, views, …
+│ 
+│   glob (success)
+│   sql/*.sql
+│ Now I have all the data needed. Let me write the planning review document.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore ARGUS warehouse: list all tables, views, …
+│ 
+│   write (success)
+│   D:\hackathon\Snowflake hackathon\evidence\coco_planning_review.md
+│ Planning review complete. Written to `evidence/coco_planning_review.md`.
+│ 
+│ **Key findings:**
+│ 
+│ - **Data is solid:** 8,747 transactions across 3 banks, full September 2026, balanced distribution, near-zero nulls. Two semantic views already exist.
+│ - **Ontology matches well for RAW/regulatory tables** — all 5 RAW entities are exact column matches. Minor drift: `obligation.required_scope` and `control.status` exist in Snowflake but not in the YAML.
+│ - **Critical gaps:** The TYPOLOGY master table, FINDING, FINDING_CLAIM, and FILING tables don't exist yet. TYPOLOGY_EVIDENCE is empty. These 4 missing tables block the entire evidence→finding→filing workflow — the demo's core narrative.
+│ - **Cross-bank signal is deliberately sparse:** 14 cross-bank txns, 1 shared national_id across all 3 banks, 2 shared devices. The shared_bad_actor_signal view surfaces 8 multi-bank signals. Control C-12 (cross-institution monitoring) exists but is `not_deployed`, leaving 3 HIGH-severity control gaps.
+│ - **Next step:** Create the missing schema objects (TYPOLOGY, FINDING, FINDING_CLAIM, FILING), populate TYPOLOGY_EVIDENCE, then validate the semantic views against the ontology's NL questions.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Explore ARGUS warehouse: list all tables, views, …
+└──────────────────────────────────────────────────────────────────────────────┘

@@ -1,0 +1,6 @@
+5608c6572e787b1cb0c19eca8a61e6ab *data/accounts.csv
+b8a08dd5a18f432786fb9478e18716b3 *data/banks.csv
+f6dc681cdc02c9afa562d27633bf81cd *data/customers.csv
+66be743ab492164b3336d1bc95b72b39 *data/device_logins.csv
+05ce8fe255ca060c20b74d3a20696172 *data/transactions.csv
+7d20749ddc3df4ca9486e56b7c6bd52c *data/ground_truth/planted_rings.json
