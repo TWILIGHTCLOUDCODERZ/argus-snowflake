@@ -1,0 +1,215 @@
+┌─ USER [17:36] ───────────────────────────────────────────────────────────────┐
+│ # CoCo session S10b — ROBUST ROUTING for the orchestrator (filing intent must reach the Verifier)
+│ 
+│ Project: **ARGUS** (team TCC). `app/orchestrator.py` (session S10) routes questions with
+│ keyword regexes (`classify_question`). An end-to-end evaluation
+│ (`validation/validate_orchestrator_e2e.py`, 10/12) found two routing misses:
+│ - "Do we need to report the mule network TYP-0003 to the regulator?" → routed `combined`;
+│   the Verifier was NOT called. The Evidence agent correctly refused to decide ("filing
+│   decisions are made by the Verifier"), so no LLM opinion leaked — but the user never got
+│   the decision. **Any filing/reporting intent must always reach the deterministic Verifier.**
+│ - "Which rules does the cash structuring case break?" → the Policy agent was not asked;
+│   the answer covered detection rules but not the regulations (CBUAE Art. 15 / SAMA Art. 12).
+│ 
+│ ## Change
+│ 1. Keep the deterministic **refusal gates first** (PII, ungrounded speculation), and make
+│    PII detection broader: national ID, passport, phone, email, date of birth, customer
+│    name/identity of the holder.
+│ 2. Replace keyword routing with an **intent classifier** using
+│    `AI_COMPLETE('claude-sonnet-4-5', ..., response_format => <JSON schema>)` returning
+│    `{intents: [evidence|policy|filing_decision], typology_ids: [], account_ids: []}`.
+│    Fall back to the regex classifier only if the call fails.
+│ 3. **Hard safety rule** (deterministic, after classification): route to the Verifier path
+│    if `filing_decision` is an intent, OR the question contains reporting vocabulary
+│    (file, filing, report, reportable, STR, SAR, FIU, GDFI, goAML, notify, disclose to
+│    regulator), OR any specialist's answer defers the decision to the Verifier.
+│    Questions about rules/regulations/obligations/requirements/law/"break"/"violate" must
+│    include the Policy agent.
+│ 4. Log the classifier result as its own handoff step (`from_agent = ORCHESTRATOR`,
+│    `to_agent = CLASSIFIER`, output = the intents JSON).
+│ 
+│ ## Dev set (tune on these; a separate hold-out set will be used for final grading)
+│ - filing: "Should we file on TYP-0003?", "Do we need to report the mule network TYP-0003 to
+│   the regulator?", "Is an STR required for TYP-0005?", "Would you recommend filing for the
+│   identity ring TYP-0002?", "Does TYP-0001 meet the bar for a suspicious transaction report?"
+│ - policy: "Which rules does the cash structuring case break?", "What obligations does CBUAE
+│   impose on mule networks?", "Is control C-12 deployed and which requirements depend on it?"
+│ - evidence: "Which accounts belong to TYP-0003?", "Show cross-bank transfers into A0000046."
+│ - combined: "Why was account A0000095 flagged, and should we file?" (evidence + Verifier)
+│ - refusals: "What is the national ID of the customer behind account A0000095?",
+│   "Is Levant Commercial going to fail its next audit?"
+│ 
+│ ## Verify
+│ - Update `validation/validate_orchestrator.py` to grade routing on the dev set **from
+│   `AGENT_RUN_LOG`** (which agents were actually called), and write
+│   `validation/orchestrator_report.md` (the S10 report that was missing).
+│ - Re-run `validation/validate_orchestrator_e2e.py` (must stay ≥ 10/12; do not edit it).
+│ - Write `evidence/coco_s10b_routing.md` (before/after routing, dev-set results).
+│ 
+│ Rules: don't change the Verifier/Narrative procedures or the agents' specs unless needed
+│ for routing; drafts only; role checks start with `USE SECONDARY ROLES NONE;`.
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ I'll start by exploring the current codebase to understand the orchestrator structure, routing logic, and validation setup before planning the implementation.
+│ 
+│   task (success)
+│   Explore ARGUS orchestrator and validation structure
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Let me also look at key files directly while the exploration runs.
+│ 
+│   glob (success)
+│   validation/*.py
+│ 
+│   glob (success)
+│   **/*.py
+│ 
+│   glob (success)
+│   evidence/coco_s*.md
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\evidence\coco_s10_orchestrator.md
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\validation\validate_orchestrator.py
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\validation\validate_orchestrator_e2e.py
+│ Let me read the full orchestrator file.
+│ 
+│   read (success)
+│   C:\Users\ACER\.snowflake\cortex\cache\tool_outputs\4e8e41cd-d842-4241-b…
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ I now have a complete understanding of the codebase. Let me plan the implementation.
+│ 
+│   enter_plan_mode (success)
+│   Complex multi-file changes: rewriting the orchestrator's routing logic …
+│ I have all the context I need. Let me verify one thing — whether AI_COMPLETE with response_format works from Python via SQL.
+│ 
+│   sql_execute (success)
+│   Test AI_COMPLETE with JSON response_format for intent classification
+│ That works. Let me also verify the full schema I need (with typology_ids and account_ids).
+│ 
+│   sql_execute (success)
+│   Test full intent classifier schema with IDs extraction
+│ The classifier correctly identifies `filing_decision` for the reporting question. Now I have everything needed to present the plan.
+│ 
+│   exit_plan_mode (success)
+│   ## Context
+
+**Root cause of the two routing misses:**
+1. "Do we need to…
+│ Starting implementation. Let me track the tasks.Starting with the orchestrator changes. I'll make all the edits to `orchestrator.py` in sequence.
+│ 
+│ **Step 1: Broaden PII detection.**
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   edit (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ Step 1 done. Moving to Step 2: adding the LLM intent classifier.Now I'll add the LLM classifier, the hard safety rules, rename the old classifier as fallback, and add the classifier logging — all in one sequence of edits.
+│ 
+│ First, add the reporting/policy vocab regexes and the LLM classifier function after the existing patterns:
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   edit (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ Steps 2 and 3 done. Now Step 4: Log classifier handoff step and pass cursor to `classify_question`. I need to update the `orchestrate()` function.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   edit (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ Good. Now I need to fix the step numbering in the PII/ungrounded refusal blocks — they still hardcode `step=1` but should use `step_num + 1` since step 1 is now the classifier.
+│ 
+│   edit (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ Step 4 done. Now Step 5: Add the post-agent safety net in the `combined` path to escalate to Verifier if an agent defers filing decisions.Let me find the combined path in the current file state.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   read (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ Now I'll add the post-agent safety net to the `combined` path. After both agents respond, check if either defers to the Verifier — if so, escalate to the filing path.
+│ 
+│   edit (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ Now I need to fix the CLI entry point to pass cursor to `classify_question`:
+│ 
+│   edit (success)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+│ Step 5 done. Now I also need to update the validate_orchestrator.py import since `classify_question` now takes an optional `cursor` param, and I need to fix the e2e test's usage. Let me check what the e2e test does — it calls `orch.classify_question(q)` (line 86). Since cursor defaults to None, that will fall back to regex, which is fine for routing display.
+│ 
+│ Now let me update `validate_orchestrator.py` (Step 6) to use the dev-set and grade from AGENT_RUN_LOG.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   write (success)
+│   D:\hackathon\Snowflake hackathon\validation\validate_orchestrator.py
+│ Step 6 done. Now Step 7: Write the evidence document.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   write (success)
+│   D:\hackathon\Snowflake hackathon\evidence\coco_s10b_routing.md
+│ Step 7 done. Now Step 8: Run the e2e test. First let me do a quick sanity check on the classifier with the two problem questions.Let me first test that the classifier works correctly for the two problem questions via SQL.
+│ 
+│   system_todo_write (success)
+│   {"todos":[{"content":"Step 1: Broaden PII detection pattern in orchestr…
+│ 
+│   sql_execute (success)
+│   Test LLM classifier on R1 (report to regulator)
+│ Both problem questions classify correctly: R1 → `filing_decision`, R2 → `policy`. The hard safety rules (`_REPORTING_VOCAB` matches "report" for R1, `_POLICY_VOCAB` matches "rules"/"break" for R2) provide additional deterministic backup.
+│ 
+│ Now let me run the e2e test. This will take a while since it makes 12 agent calls.
+│ 
+│   bash (error)
+│   $ cd "/d/hackathon/Snowflake hackathon" && .venv/Scripts/python validat…
+│ The e2e test timed out — expected since each of the 12 test cases calls LLM agents (both the classifier and the Cortex Agents). Let me run it in the background.
+│ 
+│   bash (success)
+│   $ cd "/d/hackathon/Snowflake hackathon" && .venv/Scripts/python validat…
+│ While the full e2e runs, let me also run a quick test of just the two problem cases (R1 and R2) to verify the routing fix works, using a minimal Python script.
+│ 
+│   bash (success)
+│   $ cd "/d/hackathon/Snowflake hackathon" && .venv/Scripts/python -c "
+im…
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ The classifier is returning `combined` for both — the LLM result isn't being parsed correctly. Let me debug the raw AI_COMPLETE response format from the Python connector.
+│ 
+│   bash (error)
+│   $ cd "/d/hackathon/Snowflake hackathon" && .venv/Scripts/python -c "
+im…
+└──────────────────────────────────────────────────────────────────────────────┘
+
+┌─ AGENT ──────────────────────────────────────────────────────────────────────┐
+│ The issue is the parameter binding — `%s::OBJECT` doesn't work because the string can't be cast to OBJECT. I need to use `PARSE_JSON()` instead.
+│ 
+│   edit (pending)
+│   D:\hackathon\Snowflake hackathon\app\orchestrator.py
+└──────────────────────────────────────────────────────────────────────────────┘

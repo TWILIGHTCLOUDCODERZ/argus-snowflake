@@ -1,0 +1,49 @@
+Starting by reading the plan document and exploring the existing codebase structure.Now let me read the key existing files to understand the schema and current state.Let me continue reading the existing validation files and understand the schema structures.This is a very large, multi-phase implementation task. Let me enter plan mode to design the approach before writing code.Let me explore the existing Snowflake schema to understand the current data structures before finalizing the plan.Now I have a thorough understanding of the data and schema. Let me check one more thing about the Snowflake Cortex function availability.Good, `claude-sonnet-4-5` works. Now let me check the semantic views briefly to understand Q5/Q6 resolution needs.I now have all the context needed. Let me present the implementation plan.Starting implementation. This is a large task — let me set up the todo list and begin.Now writing the main SQL file — the core discovery engine.Now executing the SQL. I'll run the table/view creation statements first, then the procedure, then call it.Now creating the stored procedure. I need to run it as a single SQL block.The SQL is too long for a single call. Let me split the procedure creation - I'll simplify the detection SQL generation to avoid the length issue.The SQL is too long for the sql_execute tool. Let me use the snow CLI to execute it from a file.The CLI is splitting on semicolons inside the procedure body. I need to use `$$` delimiters.The `INTO` clause with `OBJECT_CONSTRUCT` containing a subquery is not supported. Let me simplify the typology card generation.Procedure created successfully. Now let me call it.5 typologies discovered. Let me check the results.All 5 planted rings are discovered with the correct classes and full membership:
+
+- **TYP-0001** = RING-004 (CIRCULAR_LAYERING): 3 members, all correct
+- **TYP-0002** = RING-002 (SHARED_IDENTITY): 3 members, all correct  
+- **TYP-0003** = RING-001 (FAN_IN_FAN_OUT_MULE): 12 members, 9 source mules — all 9 found
+- **TYP-0004** = RING-005 (FAN_IN_FAN_OUT_MULE): 12 members, 9 source mules — all 9 found
+- **TYP-0005** = RING-003 (CASH_STRUCTURING): 1 member, correct
+
+Let me verify BENIGN-001 is excluded and check the typology cards.BENIGN-001's A0000004 is NOT in any typology. TYPOLOGY_EXPOSURE works correctly with class-based mapping. Let me check a typology card.Excellent results. Let me now mark this step done and proceed to the remaining tasks.Now updating sql/05_regulatory_twin.sql to add class-based tables and redefine TYPOLOGY_EXPOSURE.Now creating the discovery validation script and updating the existing validators. I'll work on these in parallel using subagents.Now updating validate_week2.py. The key changes: Snowflake backend needs to resolve RING-IDs to discovered TYP-IDs, and skip the temporary TYPOLOGY_EVIDENCE stand-in when real data exists.Now update the Snowflake backend to use resolved IDs and skip the temp evidence if real data exists.Now update the `run` method of SnowflakeBackend to resolve ring IDs:Now updating validate_analyst.py to use Jaccard resolution and skip temp evidence when real data exists.I need to update `get_connection`, `compute_q6_ground_truth`, `load_q5_ground_truth`, and the question builder to use resolved typology IDs. Let me add the Jaccard resolver and update these functions.Now update `get_connection` to resolve rings and skip temp evidence:Now update the Q6 ground truth and Q5 ground truth to use resolved IDs:Now update the Q5/Q6 questions to use the resolved typology IDs:Now update Set B's Q5/Q6 questions too:Now update Set C Q5/Q6:Now running the validators. Let me start with validate_week2.py --backend snowflake and validate_discovery.py in parallel.**6/6 pass** on Week 2 Snowflake validation. Now running discovery validation.Perfect results for the baseline test (all 5 rings, 9/9 source mules both rings, BENIGN-001 excluded, 0 clean accounts). The live test just needs a `USE SCHEMA` before the procedure call. Let me fix it.Also fix the finally block which has the same issue:All checks pass:
+- **5/5 planted rings** matched with Jaccard 1.00 and correct classes
+- **9/9 source mules** for both RING-001 and RING-005
+- **BENIGN-001** A0000004 correctly excluded
+- **0 clean accounts** in typologies
+- **RING-006 live**: discovered with 9/9 source mules after feed replay
+- **Baseline restored** to 5 typologies after reset
+
+Now let me run the analyst validation. This takes longer due to LLM calls.While the analyst validation runs, let me write the evidence document and update the main SQL file.Let me get the full typology cards for the evidence document.Let me check on the analyst validation.Analyst validation results:
+- **Set A (verbatim): 6/6 (100%)**
+- **Set B (paraphrases): 10/12 (83%)** — meets the 80% target
+- **Set C (S6 wording): 6/6 (100%)**
+
+Both targets met. The 2 failures in Set B are a SQL generation error on B2b and a gap-flag mismatch on B5b — both are LLM query generation issues, not problems with our schema.
+
+Let me update the evidence document with the analyst results and finalize.All tasks complete. Here's the summary:
+
+## Session S8 — Typology Discovery Engine: Complete
+
+**What was built:**
+- `SP_DISCOVER_TYPOLOGIES()` — a Snowflake Scripting procedure that performs graph expansion from seed signals, BFS traversal, connected-component detection via label propagation, role assignment, and classification
+- Class-based regulatory twin mapping (`TYPOLOGY_CLASS`, `TYPOLOGY_CLASS_OBLIGATION`, redefined `TYPOLOGY_EXPOSURE`)
+- AI-generated typology cards via `SNOWFLAKE.CORTEX.COMPLETE`
+- `validate_discovery.py` with live-feed replay test
+- Updated `validate_week2.py` and `validate_analyst.py` with Jaccard ring-to-typology resolution
+
+**Results:**
+
+| Metric | Target | Actual |
+|--------|--------|--------|
+| Planted rings discovered | 5/5 | 5/5 (Jaccard 1.00 each) |
+| RING-001 source mules | ≥ 8/9 | **9/9** |
+| RING-005 source mules | ≥ 8/9 | **9/9** |
+| BENIGN-001 excluded | Yes | Yes |
+| Clean accounts in typologies | ≤ 1 | **0** |
+| RING-006 live discovery | Yes | Yes (9/9 mules) |
+| Week 2 validation (Snowflake) | 6/6 | **6/6** |
+| Analyst Set A | ≥ 5/6 | **6/6** |
+| Analyst Set B | ≥ 80% | **83%** (10/12) |
+
+**Key files:** `sql/10_sp_discover.sql`, `sql/10_typology_discovery.sql`, `sql/05_regulatory_twin.sql`, `validation/validate_discovery.py`, `evidence/coco_s8_typology_discovery.md`

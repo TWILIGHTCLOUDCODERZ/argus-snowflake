@@ -20,8 +20,8 @@
 | A2 | Why was account A0000095 flagged, and should we file? | PASS | A0000095: 1 row(s) with cross-bank evidence [NOTE: filing decision deferred to Verifier agent] |
 | A3 | Which accounts share a device or national ID across more than one bank? | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
 | A4 | List cash deposits just under the reporting threshold in September 2026. | PASS | Exactly A0000343 returned (RING-003 structuring account) |
-| A5 | Which regulatory obligations does typology RING-001 touch, and are our controls adequate? | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
-| A6 | What is the total value moving through the funnel accounts of ring RING-001? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
+| A5 | Which regulatory obligations does typology TYP-0003 touch, and are our controls adequate? | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
+| A6 | What is the total value moving through the funnel accounts of ring TYP-0003? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
 
 ## Set B — Natural-Language Paraphrases
 
@@ -29,16 +29,16 @@
 |---|----------|------|--------|
 | B1a | Which accounts are collecting money from multiple other banks in a short time window? | PASS | Both hubs ['A0000046', 'A0000095'] found; 2 account(s) total, all within planted rings |
 | B1b | Are there any accounts acting as consolidation points for cross-bank transfers? | PASS | Both hubs ['A0000046', 'A0000095'] found; 2 account(s) total, all within planted rings |
-| B2a | What evidence do we have against account A0000095 — is there enough to file a report? | **FAIL** | A0000095: 4 row(s) but none show cross-bank evidence |
+| B2a | What evidence do we have against account A0000095 — is there enough to file a report? | PASS | A0000095: 4 row(s) with cross-bank evidence [NOTE: filing decision deferred to Verifier agent] |
 | B2b | Give me a summary of suspicious activity for account A0000095. | **FAIL** | SQL execution error: 100038 (22018): Numeric value 'A0000095' is not recognized |
 | B3a | Do any customers appear to be using the same identity documents or devices at different banks? | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
 | B3b | Show me potential identity fraud — cases where identifiers are shared across multiple institutions. | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
 | B4a | Are there accounts making repeated cash deposits just below the AED 55,000 reporting limit? | PASS | Exactly A0000343 returned (RING-003 structuring account) |
 | B4b | Show me suspected smurfing activity from September 2026. | PASS | Exactly A0000343 returned (RING-003 structuring account) |
-| B5a | For the cross-bank mule ring RING-001, what regulations apply and do we have any gaps in our control | PASS | RING-001: 3 obligations, has HIGH gap(s), all flags match ground truth |
-| B5b | Show me where RING-001 creates regulatory exposure — which requirements aren't fully covered? | PASS | RING-001: 3 obligations, has HIGH gap(s), all flags match ground truth |
-| B6a | How much money in total passed through the collection accounts of ring RING-001? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
-| B6b | What is the total AED amount that flowed through RING-001's consolidation network? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
+| B5a | For the cross-bank mule ring TYP-0003, what regulations apply and do we have any gaps in our control | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
+| B5b | Show me where TYP-0003 creates regulatory exposure — which requirements aren't fully covered? | **FAIL** | Gap flag mismatch: OB-04: is_gap=False expected True; OB-05: is_gap=False expected True; OB-03: is_gap=False expected True |
+| B6a | How much money in total passed through the collection accounts of ring TYP-0003? | PASS | AED 372,968.44 (column: total_consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
+| B6b | What is the total AED amount that flowed through TYP-0003's consolidation network? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
 
 ## Set C — S6 Analyst-Friendly Wording (Not Counted)
 
@@ -48,45 +48,10 @@
 | C2 | Show all cross-bank inbound credit transactions for account A0000095. | PASS | A0000095: 2 row(s) with cross-bank evidence [NOTE: filing decision deferred to Verifier agent] |
 | C3 | Which accounts share a device or national ID across more than one bank? | PASS | RING-002 national_id_hash found at 3 banks; 3 total signals |
 | C4 | Show all structuring accounts with near-threshold cash deposits. | PASS | Exactly A0000343 returned (RING-003 structuring account) |
-| C5 | Which regulatory obligations does typology RING-001 touch, and are our controls adequate? | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
-| C6 | What is the total transaction amount for the funnel and consolidation accounts in typology RING-001? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
+| C5 | Which regulatory obligations does typology TYP-0003 touch, and are our controls adequate? | PASS | RING-001: 4 obligations, has HIGH gap(s), all flags match ground truth |
+| C6 | What is the total transaction amount for the funnel and consolidation accounts in typology TYP-0003? | PASS | AED 372,968.44 (column: consortium_inbound_amount) within 1% of ground truth AED 372,968.44 (diff: 0.00%) |
 
 ## Failure Analysis (Sets A + B)
-
-### B2a: What evidence do we have against account A0000095 — is there enough to file a report?
-
-- **View**: `ARGUS.GOVERNED.ARGUS_FRAUD_SV`
-- **Reason**: A0000095: 4 row(s) but none show cross-bank evidence
-- **Generated SQL**:
-```sql
--- 1. Hub detection: is this account flagged as a cross-bank fraud hub?
-SELECT
-    'hub_accounts' AS evidence_source,
-    hub_burst_start::VARCHAR AS col1,
-    hub_burst_end::VARCHAR AS col2,
-    hub_inbound_amount::VARCHAR AS col3,
-    hub_inbound_transfers::VARCHAR AS col4,
-    hub_source_banks::VARCHAR AS col5,
-    NULL AS col6,
-    NULL AS col7
-FROM SEMANTIC_VIEW(
-    ARGUS.GOVERNED.ARGUS_FRAUD_SV
-    FACTS hub_accounts.hub_burst_start,
-          hub_accounts.hub_burst_end,
-          hub_accounts.hub_inbound_amount,
-          hub_accounts.hub_inbound_transfers,
-          hub_accounts.hub_source_banks,
-          accounts.account_id
-    WHERE accounts.account_id = 'A0000095'
-)
-
-UNION ALL
-
--- 2. Structuring: near-threshold cash deposits
-SELECT
-    'structuring' AS evidence_source,
-    str
-```
 
 ### B2b: Give me a summary of suspicious activity for account A0000095.
 
@@ -123,6 +88,57 @@ WITH __alerts AS (
   FROM ARGUS.CURATED.DT_STRUCTURING
 ), __transactions AS (
 
+```
+
+### B5b: Show me where TYP-0003 creates regulatory exposure — which requirements aren't fully covered?
+
+- **View**: `ARGUS.GOVERNED.ARGUS_REGTWIN_SV`
+- **Reason**: Gap flag mismatch: OB-04: is_gap=False expected True; OB-05: is_gap=False expected True; OB-03: is_gap=False expected True
+- **Generated SQL**:
+```sql
+WITH __typology_exposure AS (
+  SELECT
+    is_gap,
+    rationale,
+    severity,
+    typology_id,
+    obligation_id
+  FROM ARGUS.GOVERNED.TYPOLOGY_EXPOSURE
+), __obligations AS (
+  SELECT
+    obligation_id,
+    obligation_text,
+    required_scope,
+    clause_id
+  FROM ARGUS.GOVERNED.OBLIGATION
+), __clauses AS (
+  SELECT
+    clause_id,
+    text AS clause_text,
+    regulation_id
+  FROM ARGUS.GOVERNED.CLAUSE
+), __regulations AS (
+  SELECT
+    regulation_id,
+    regulator,
+    title
+  FROM ARGUS.GOVERNED.REGULATION
+)
+SELECT
+  te.typology_id,
+  te.obligation_id,
+  o.obligation_text,
+  o.required_scope,
+  te.severity,
+  te.rationale,
+  c.clause_id,
+  c.clause_text,
+  r.regulation_id,
+  r.title AS regulation_title,
+  r.regulator
+FROM __typology_exposure AS te
+LEFT OUTER JOIN __obligations AS o
+  ON
 ```
 
 

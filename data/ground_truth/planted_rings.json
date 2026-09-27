@@ -285,7 +285,9 @@
           "entity_id": "A0000275",
           "bank_id": "BANK_B"
         }
-      ]
+      ],
+      "note": "A0000275 was also drawn as a RING-005 source mule (the Week 1 generator did not exclude ring members when picking the benign pair), so it correctly appears in RING-005's typology via its funnel transfer. The benign test is A0000004: the weak shared-device link must NOT pull it into any typology.",
+      "benign_only_account": "A0000004"
     }
   ],
   "live_typologies": [

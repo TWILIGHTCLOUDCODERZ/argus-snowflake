@@ -103,15 +103,50 @@ LEFT JOIN control c             ON c.control_id = co.control_id
 GROUP BY o.obligation_id, o.obligation_text, o.required_scope, cl.article_ref, r.regulator;
 
 -- ---------------------------------------------------------------------------
--- TYPOLOGY EXPOSURE — the correlation loop: fraud typology -> obligation -> gap.
+-- TYPOLOGY_CLASS + TYPOLOGY_CLASS_OBLIGATION — class-based twin mapping.
+-- Discovered typologies map to obligations by class (Week 3 design correction).
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS typology_class (
+    typology_class STRING, name STRING, description STRING
+);
+CREATE TABLE IF NOT EXISTS typology_class_obligation (
+    typology_class STRING, obligation_id STRING
+);
+
+TRUNCATE TABLE IF EXISTS typology_class;
+TRUNCATE TABLE IF EXISTS typology_class_obligation;
+
+INSERT INTO typology_class (typology_class, name, description)
+SELECT f.value:typology_class::STRING, f.value:name::STRING, f.value:description::STRING
+FROM _seed, LATERAL FLATTEN(doc:typology_classes) f;
+
+INSERT INTO typology_class_obligation (typology_class, obligation_id)
+SELECT f.value:typology_class::STRING, f.value:obligation_id::STRING
+FROM _seed, LATERAL FLATTEN(doc:typology_class_obligation) f;
+
+-- Clear old RING-keyed typology_obligation (answer-key IDs must not live in governed)
+TRUNCATE TABLE IF EXISTS typology_obligation;
+
+-- ---------------------------------------------------------------------------
+-- TYPOLOGY EXPOSURE — class-based: discovered typology → class → obligation → gap.
 -- ---------------------------------------------------------------------------
 CREATE OR REPLACE VIEW typology_exposure AS
 SELECT t.typology_id, g.obligation_id, g.obligation_text, g.regulator, g.article_ref,
        g.is_gap, g.severity, g.rationale
-FROM typology_obligation t
-JOIN control_gap g ON g.obligation_id = t.obligation_id;
+FROM typology t
+JOIN typology_class_obligation tco ON tco.typology_class = t.typology_class
+JOIN control_gap g ON g.obligation_id = tco.obligation_id;
 
--- Typology evidence (membership) is written by the Typology agent in Week 3.
+-- Typology + Typology evidence tables are created by 10_typology_discovery.sql.
+CREATE TABLE IF NOT EXISTS typology (
+    typology_id STRING, typology_class STRING, name STRING,
+    banks_involved ARRAY, member_count NUMBER,
+    first_seen TIMESTAMP_NTZ, last_seen TIMESTAMP_NTZ,
+    total_value NUMBER(18,2), confidence NUMBER(3,2),
+    detection_sql STRING, card_md STRING,
+    status STRING DEFAULT 'DISCOVERED',
+    discovered_at TIMESTAMP_NTZ DEFAULT CURRENT_TIMESTAMP()
+);
 CREATE TABLE IF NOT EXISTS typology_evidence (
     typology_id STRING, entity_type STRING, entity_id STRING, role STRING, bank_id STRING
 );

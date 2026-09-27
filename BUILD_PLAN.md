@@ -210,10 +210,11 @@ A new circular lands in Google Drive → Twin identifies the required detection 
 - **Deliverable:** working governed NL→SQL + cross-bank graph + queryable twin. **Evidence:** CoCo session transcripts (`evidence/README.md`) ✅ · dev-in-CLI clips — *to do*.
 
 ### Week 3 — Intelligence + Evidence + UI *(CoCo: Development)*
-- [ ] **Typology-discovery engine** (community/anomaly detection) + auto-generated explainable detection queries + **typology cards**.
-- [ ] **Correlation engine** (typology ↔ obligation ↔ control-gap).
-- [ ] **Evidence ledger** + **guardrail/verifier** agent (refuse on thin evidence).
-- [ ] CoCo scaffolds the **Streamlit investigator app** (ask, see the ring, click evidence, one-button finding).
+- [x] **Typology-discovery engine** (community/anomaly detection) + auto-generated explainable detection queries + **typology cards**. *(S8: 5/5 rings, 9/9 hidden source mules per mule ring, 0 false positives)*
+- [x] **Correlation engine** (typology ↔ obligation ↔ control-gap). *(class-based mapping — discovered typologies, never answer-key IDs)*
+- [x] **Evidence ledger** + **guardrail/verifier** agent (refuse on thin evidence). *(S9/S9b: claims → transactions + clauses, numeric grounding, per-bank STR drafts; 46/46)*
+- [x] **Multi-agent orchestrator** *(added)* — Evidence + Policy Cortex Agents, deterministic Verifier/Narrative, handoff log. *(S10–S10c: end-to-end 12/12; hold-out routing incl. idempotency)*
+- [x] CoCo scaffolds the **Streamlit investigator app** (ask, see the ring, click evidence, one-button finding). *(S11: Streamlit in Snowflake, owned by the least-privilege analyst role; live-feed demo, typologies, findings, filing review with narrow approval, Ask ARGUS)*
 - **Deliverable:** end-to-end signal→evidence→finding in the app. **Evidence:** CoCo generating Streamlit.
 
 ### Week 4 — Action, automation, hardening, demo *(CoCo: Execution + Testing)*

@@ -43,6 +43,40 @@ CONNECTION = "argus"
 FRAUD_SV = "ARGUS.GOVERNED.ARGUS_FRAUD_SV"
 REGTWIN_SV = "ARGUS.GOVERNED.ARGUS_REGTWIN_SV"
 
+# Ring-to-discovered-typology resolution
+RING_MAP = {}  # populated at connect time
+
+
+def _jaccard(a, b):
+    if not a and not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _resolve_rings(cur):
+    """Match planted RING-xxx to discovered TYP-xxx via Jaccard overlap."""
+    try:
+        rows = run_sql(cur, "SELECT typology_id, entity_id FROM ARGUS.GOVERNED.TYPOLOGY_EVIDENCE WHERE typology_id LIKE 'TYP-%%'")
+    except Exception:
+        return {}
+    discovered = {}
+    for r in rows:
+        discovered.setdefault(r["typology_id"], set()).add(r["entity_id"])
+    if not discovered:
+        return {}
+    mapping = {}
+    for ring_id, ring_data in rings.items():
+        gt_accounts = {m["entity_id"] for m in ring_data["members"] if m["entity_type"] == "account"}
+        best_typ, best_j = None, 0.0
+        for typ_id, typ_members in discovered.items():
+            j = _jaccard(gt_accounts, typ_members)
+            if j > best_j:
+                best_j = j
+                best_typ = typ_id
+        if best_typ and best_j >= 0.5:
+            mapping[ring_id] = best_typ
+    return mapping
+
 
 # ─── helpers ────────────────────────────────────────────────────────
 def members(tid, roles=None):
@@ -126,6 +160,7 @@ def _first_positive_numeric(rows, *col_candidates):
 import snowflake.connector
 
 def get_connection():
+    global RING_MAP
     con = snowflake.connector.connect(connection_name=CONNECTION)
     cur = con.cursor()
     # Check if TYPOLOGY_EVIDENCE already has data; if not, populate from ground truth
@@ -136,31 +171,37 @@ def get_connection():
                     "(typology_id STRING, entity_type STRING, entity_id STRING, role STRING, bank_id STRING)")
         cur.executemany("INSERT INTO ARGUS.GOVERNED.TYPOLOGY_EVIDENCE VALUES (%s,%s,%s,%s,%s)", EVIDENCE_ROWS)
         print(f"  Populated TYPOLOGY_EVIDENCE with {len(EVIDENCE_ROWS)} rows from ground truth")
+        RING_MAP = {}
     else:
         print(f"  TYPOLOGY_EVIDENCE already has {count} rows")
+        RING_MAP = _resolve_rings(cur)
+        if RING_MAP:
+            print(f"  Resolved ring mapping: {RING_MAP}")
     return con, cur
 
 
 def compute_q6_ground_truth(cur) -> float:
     """Run the verified Q6 SQL live and return the ground-truth value."""
-    q6_sql = """
+    typ_id = RING_MAP.get("RING-001", "RING-001")
+    q6_sql = f"""
     SELECT SUM(t.amount) AS value_through_hubs
     FROM ARGUS.GOVERNED.typology_evidence e
     JOIN ARGUS.RAW.transactions t
       ON t.account_id = e.entity_id AND t.direction = 'credit'
-    WHERE e.typology_id = 'RING-001'
+    WHERE e.typology_id = '{typ_id}'
       AND e.role IN ('funnel','consolidation')
       AND t.counterparty_bank IN ('BANK_A','BANK_B','BANK_C')
     """
     rows = run_sql(cur, q6_sql)
     val = float(rows[0]["value_through_hubs"])
-    print(f"  Q6 ground truth (live): AED {val:,.2f}")
+    print(f"  Q6 ground truth (live, {typ_id}): AED {val:,.2f}")
     return val
 
 
 def load_q5_ground_truth(cur) -> dict:
     """Load TYPOLOGY_EXPOSURE for RING-001 to cross-check Q5 answers."""
-    rows = run_sql(cur, "SELECT * FROM ARGUS.GOVERNED.TYPOLOGY_EXPOSURE WHERE typology_id = 'RING-001'")
+    typ_id = RING_MAP.get("RING-001", "RING-001")
+    rows = run_sql(cur, f"SELECT * FROM ARGUS.GOVERNED.TYPOLOGY_EXPOSURE WHERE typology_id = '{typ_id}'")
     truth = {}
     for r in rows:
         oid = r["obligation_id"]
@@ -361,6 +402,9 @@ def build_questions(q6_ground_truth, q5_truth):
     grade_q6 = make_grade_q6_strict(q6_ground_truth)
     grade_q5 = make_grade_q5_strict(q5_truth)
 
+    # Resolve RING-001 to discovered typology for Q5/Q6 questions
+    typ_id_for_ring1 = RING_MAP.get("RING-001", "RING-001")
+
     # ── SET A: Verbatim ontology questions ──
     set_a = [
         {"qid": "A1", "view": FRAUD_SV, "set": "A",
@@ -376,10 +420,10 @@ def build_questions(q6_ground_truth, q5_truth):
          "question": "List cash deposits just under the reporting threshold in September 2026.",
          "grader": grade_q4_strict},
         {"qid": "A5", "view": REGTWIN_SV, "set": "A",
-         "question": "Which regulatory obligations does typology RING-001 touch, and are our controls adequate?",
+         "question": f"Which regulatory obligations does typology {typ_id_for_ring1} touch, and are our controls adequate?",
          "grader": grade_q5},
         {"qid": "A6", "view": FRAUD_SV, "set": "A",
-         "question": "What is the total value moving through the funnel accounts of ring RING-001?",
+         "question": f"What is the total value moving through the funnel accounts of ring {typ_id_for_ring1}?",
          "grader": grade_q6},
     ]
 
@@ -414,17 +458,17 @@ def build_questions(q6_ground_truth, q5_truth):
          "grader": grade_q4_strict},
 
         {"qid": "B5a", "view": REGTWIN_SV, "set": "B",
-         "question": "For the cross-bank mule ring RING-001, what regulations apply and do we have any gaps in our controls?",
+         "question": f"For the cross-bank mule ring {typ_id_for_ring1}, what regulations apply and do we have any gaps in our controls?",
          "grader": grade_q5},
         {"qid": "B5b", "view": REGTWIN_SV, "set": "B",
-         "question": "Show me where RING-001 creates regulatory exposure — which requirements aren't fully covered?",
+         "question": f"Show me where {typ_id_for_ring1} creates regulatory exposure — which requirements aren't fully covered?",
          "grader": grade_q5},
 
         {"qid": "B6a", "view": FRAUD_SV, "set": "B",
-         "question": "How much money in total passed through the collection accounts of ring RING-001?",
+         "question": f"How much money in total passed through the collection accounts of ring {typ_id_for_ring1}?",
          "grader": grade_q6},
         {"qid": "B6b", "view": FRAUD_SV, "set": "B",
-         "question": "What is the total AED amount that flowed through RING-001's consolidation network?",
+         "question": f"What is the total AED amount that flowed through {typ_id_for_ring1}'s consolidation network?",
          "grader": grade_q6},
     ]
 
@@ -443,10 +487,10 @@ def build_questions(q6_ground_truth, q5_truth):
          "question": "Show all structuring accounts with near-threshold cash deposits.",
          "grader": grade_q4_strict},
         {"qid": "C5", "view": REGTWIN_SV, "set": "C",
-         "question": "Which regulatory obligations does typology RING-001 touch, and are our controls adequate?",
+         "question": f"Which regulatory obligations does typology {typ_id_for_ring1} touch, and are our controls adequate?",
          "grader": grade_q5},
         {"qid": "C6", "view": FRAUD_SV, "set": "C",
-         "question": "What is the total transaction amount for the funnel and consolidation accounts in typology RING-001?",
+         "question": f"What is the total transaction amount for the funnel and consolidation accounts in typology {typ_id_for_ring1}?",
          "grader": grade_q6},
     ]
 

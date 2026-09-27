@@ -43,6 +43,40 @@ EVIDENCE_ROWS = [(t["typology_id"], m["entity_type"], m["entity_id"], m["role"],
                  for t in gt["typologies"] for m in t["members"]]
 
 
+def _jaccard(a, b):
+    if not a and not b:
+        return 0.0
+    return len(a & b) / len(a | b)
+
+
+def _resolve_ring_to_typ(cur):
+    """Match planted ring IDs to discovered TYP-* IDs via Jaccard overlap."""
+    try:
+        cur.execute("SELECT typology_id, entity_id FROM ARGUS.GOVERNED.TYPOLOGY_EVIDENCE WHERE typology_id LIKE 'TYP-%%'")
+        rows = cur.fetchall()
+    except Exception:
+        return {}
+    discovered = {}
+    for r in rows:
+        tid = r["TYPOLOGY_ID"] if isinstance(r, dict) else r[0]
+        eid = r["ENTITY_ID"] if isinstance(r, dict) else r[1]
+        discovered.setdefault(tid, set()).add(eid)
+    if not discovered:
+        return {}
+    mapping = {}
+    for ring_id, ring_data in rings.items():
+        gt_accounts = {m["entity_id"] for m in ring_data["members"] if m["entity_type"] == "account"}
+        best_typ, best_j = None, 0.0
+        for typ_id, typ_members in discovered.items():
+            j = _jaccard(gt_accounts, typ_members)
+            if j > best_j:
+                best_j = j
+                best_typ = typ_id
+        if best_typ and best_j >= 0.5:
+            mapping[ring_id] = best_typ
+    return mapping
+
+
 # =========================================================================== #
 # Backend 1 — SQLite (offline)
 # =========================================================================== #
@@ -207,17 +241,27 @@ class SnowflakeBackend:
         self.Q = {v["name"].split("_")[0].upper(): v["sql"] for v in spec["verified_queries"]}
         self.con = snowflake.connector.connect(connection_name=connection_name)
         self.cur = self.con.cursor(snowflake.connector.DictCursor)
-        # Session-scoped stand-in; hides the (empty) permanent table for this session only.
-        self.cur.execute("CREATE TEMPORARY TABLE ARGUS.GOVERNED.TYPOLOGY_EVIDENCE "
-                         "(typology_id STRING, entity_type STRING, entity_id STRING, role STRING, bank_id STRING)")
-        self.cur.executemany("INSERT INTO ARGUS.GOVERNED.TYPOLOGY_EVIDENCE VALUES (%s,%s,%s,%s,%s)", EVIDENCE_ROWS)
+
+        # Check if TYPOLOGY_EVIDENCE already has real data
+        self.cur.execute("SELECT COUNT(*) AS cnt FROM ARGUS.GOVERNED.TYPOLOGY_EVIDENCE")
+        count = self.cur.fetchone()["CNT"]
+        if count == 0:
+            # No discovery data yet — stand in from ground truth
+            self.cur.execute("CREATE TEMPORARY TABLE ARGUS.GOVERNED.TYPOLOGY_EVIDENCE "
+                             "(typology_id STRING, entity_type STRING, entity_id STRING, role STRING, bank_id STRING)")
+            self.cur.executemany("INSERT INTO ARGUS.GOVERNED.TYPOLOGY_EVIDENCE VALUES (%s,%s,%s,%s,%s)", EVIDENCE_ROWS)
+            self.ring_map = {}
+        else:
+            # Real discovery data exists — resolve RING-xxx → TYP-xxx
+            self.ring_map = _resolve_ring_to_typ(self.cur)
 
     def run(self, qid, **params):
         sql = self.Q[qid]
         for k, v in params.items():
             if not self.SAFE.match(v):
                 raise ValueError(f"unsafe placeholder value for {k}: {v!r}")
-            sql = sql.replace("{" + k + "}", v)
+            resolved = self.ring_map.get(v, v) if self.ring_map else v
+            sql = sql.replace("{" + k + "}", resolved)
         self.cur.execute(sql)
         return [{k.lower(): v for k, v in row.items()} for row in self.cur.fetchall()]
 

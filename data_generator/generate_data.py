@@ -241,6 +241,9 @@ def plant_circular(tid):
 # --- BENIGN hard negative: household shares one tablet across 2 banks ---------
 # Weak signal only (shared device, different identities, no suspicious flows).
 # ARGUS must NOT escalate this — used to measure false positives in Week 4.
+# Known quirk (kept for reproducibility): the random picks are not excluded from ring
+# members, so with seed 4471 A0000275 is also a RING-005 source mule. The benign test
+# uses A0000004 (see `benign_only_account` in planted_rings.json).
 def plant_benign_shared_device(bid_):
     a = pick_accounts("BANK_A", 1)[0]; b = pick_accounts("BANK_B", 1)[0]
     household_dev = h(f"dev-household-{bid_}")
